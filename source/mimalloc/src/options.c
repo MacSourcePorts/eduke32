@@ -19,8 +19,8 @@ terms of the MIT license. A copy of the license can be found in the file
 #endif
 
 
-static size_t mi_max_error_count   = 16; // stop outputting errors after this
-static size_t mi_max_warning_count = 16; // stop outputting warnings after this
+static uintptr_t mi_max_error_count   = 16; // stop outputting errors after this
+static uintptr_t mi_max_warning_count = 16; // stop outputting warnings after this
 
 static void mi_add_stderr_output(void);
 
@@ -76,7 +76,6 @@ static mi_option_desc_t options[_mi_option_last] =
   #endif
   { 0, UNINIT, MI_OPTION(large_os_pages) },      // use large OS pages, use only with eager commit to prevent fragmentation of VMA's
   { 0, UNINIT, MI_OPTION(reserve_huge_os_pages) },  // per 1GiB huge pages
-  { -1, UNINIT, MI_OPTION(reserve_huge_os_pages_at) }, // reserve huge pages at node N
   { 0, UNINIT, MI_OPTION(reserve_os_memory)     },
   { 0, UNINIT, MI_OPTION(segment_cache) },       // cache N segments per thread
   { 1, UNINIT, MI_OPTION(page_reset) },          // reset page memory on free
@@ -104,7 +103,7 @@ void _mi_options_init(void) {
   mi_add_stderr_output(); // now it safe to use stderr for output
   for(int i = 0; i < _mi_option_last; i++ ) {
     mi_option_t option = (mi_option_t)i;
-    long l = mi_option_get(option); MI_UNUSED(l); // initialize
+    long l = mi_option_get(option); UNUSED(l); // initialize
     if (option != mi_option_verbose) {
       mi_option_desc_t* desc = &options[option];
       _mi_verbose_message("option '%s': %ld\n", desc->name, desc->value);
@@ -114,7 +113,7 @@ void _mi_options_init(void) {
   mi_max_warning_count = mi_option_get(mi_option_max_warnings);
 }
 
-mi_decl_nodiscard long mi_option_get(mi_option_t option) {
+long mi_option_get(mi_option_t option) {
   mi_assert(option >= 0 && option < _mi_option_last);
   mi_option_desc_t* desc = &options[option];
   mi_assert(desc->option == option);  // index should match the option
@@ -140,7 +139,7 @@ void mi_option_set_default(mi_option_t option, long value) {
   }
 }
 
-mi_decl_nodiscard bool mi_option_is_enabled(mi_option_t option) {
+bool mi_option_is_enabled(mi_option_t option) {
   return (mi_option_get(option) != 0);
 }
 
@@ -162,7 +161,7 @@ void mi_option_disable(mi_option_t option) {
 
 
 static void mi_out_stderr(const char* msg, void* arg) {
-  MI_UNUSED(arg);
+  UNUSED(arg);
   #ifdef _WIN32
   // on windows with redirection, the C runtime cannot handle locale dependent output
   // after the main thread closes so we use direct console output.
@@ -177,19 +176,19 @@ static void mi_out_stderr(const char* msg, void* arg) {
 // an output function is registered it is called immediately with
 // the output up to that point.
 #ifndef MI_MAX_DELAY_OUTPUT
-#define MI_MAX_DELAY_OUTPUT ((size_t)(32*1024))
+#define MI_MAX_DELAY_OUTPUT ((uintptr_t)(32*1024))
 #endif
 static char out_buf[MI_MAX_DELAY_OUTPUT+1];
-static _Atomic(size_t) out_len;
+static _Atomic(uintptr_t) out_len;
 
 static void mi_out_buf(const char* msg, void* arg) {
-  MI_UNUSED(arg);
+  UNUSED(arg);
   if (msg==NULL) return;
   if (mi_atomic_load_relaxed(&out_len)>=MI_MAX_DELAY_OUTPUT) return;
   size_t n = strlen(msg);
   if (n==0) return;
   // claim space
-  size_t start = mi_atomic_add_acq_rel(&out_len, n);
+  uintptr_t start = mi_atomic_add_acq_rel(&out_len, n);
   if (start >= MI_MAX_DELAY_OUTPUT) return;
   // check bound
   if (start+n >= MI_MAX_DELAY_OUTPUT) {
@@ -252,42 +251,27 @@ static void mi_add_stderr_output() {
 // --------------------------------------------------------
 // Messages, all end up calling `_mi_fputs`.
 // --------------------------------------------------------
-static _Atomic(size_t) error_count;   // = 0;  // when >= max_error_count stop emitting errors
-static _Atomic(size_t) warning_count; // = 0;  // when >= max_warning_count stop emitting warnings
+static _Atomic(uintptr_t) error_count;   // = 0;  // when >= max_error_count stop emitting errors
+static _Atomic(uintptr_t) warning_count; // = 0;  // when >= max_warning_count stop emitting warnings
 
 // When overriding malloc, we may recurse into mi_vfprintf if an allocation
 // inside the C runtime causes another message.
-// In some cases (like on macOS) the loader already allocates which
-// calls into mimalloc; if we then access thread locals (like `recurse`)
-// this may crash as the access may call _tlv_bootstrap that tries to 
-// (recursively) invoke malloc again to allocate space for the thread local
-// variables on demand. This is why we use a _mi_preloading test on such
-// platforms. However, C code generator may move the initial thread local address
-// load before the `if` and we therefore split it out in a separate funcion.
 static mi_decl_thread bool recurse = false;
-
-static mi_decl_noinline bool mi_recurse_enter_prim(void) {
-  if (recurse) return false;
-  recurse = true;
-  return true;
-}
-
-static mi_decl_noinline void mi_recurse_exit_prim(void) {
-  recurse = false;
-}
 
 static bool mi_recurse_enter(void) {
   #if defined(__APPLE__) || defined(MI_TLS_RECURSE_GUARD)
   if (_mi_preloading()) return true;
   #endif
-  return mi_recurse_enter_prim();
+  if (recurse) return false;
+  recurse = true;
+  return true;
 }
 
 static void mi_recurse_exit(void) {
   #if defined(__APPLE__) || defined(MI_TLS_RECURSE_GUARD)
   if (_mi_preloading()) return;
   #endif
-  mi_recurse_exit_prim();
+  recurse = false;
 }
 
 void _mi_fputs(mi_output_fun* out, void* arg, const char* prefix, const char* message) {
@@ -369,7 +353,7 @@ static mi_error_fun* volatile  mi_error_handler; // = NULL
 static _Atomic(void*) mi_error_arg;     // = NULL
 
 static void mi_error_default(int err) {
-  MI_UNUSED(err);
+  UNUSED(err);
 #if (MI_DEBUG>0) 
   if (err==EFAULT) {
     #ifdef _MSC_VER
@@ -415,32 +399,21 @@ void _mi_error_message(int err, const char* fmt, ...) {
 // --------------------------------------------------------
 
 static void mi_strlcpy(char* dest, const char* src, size_t dest_size) {
-  if (dest==NULL || src==NULL || dest_size == 0) return;
-  // copy until end of src, or when dest is (almost) full
-  while (*src != 0 && dest_size > 1) {
-    *dest++ = *src++;
-    dest_size--;
-  }
-  // always zero terminate
-  *dest = 0;
+  dest[0] = 0;
+  strncpy(dest, src, dest_size - 1);
+  dest[dest_size - 1] = 0;
 }
 
 static void mi_strlcat(char* dest, const char* src, size_t dest_size) {
-  if (dest==NULL || src==NULL || dest_size == 0) return;
-  // find end of string in the dest buffer
-  while (*dest != 0 && dest_size > 1) {
-    dest++;
-    dest_size--;
-  }
-  // and catenate
-  mi_strlcpy(dest, src, dest_size);
+  strncat(dest, src, dest_size - 1);
+  dest[dest_size - 1] = 0;
 }
 
 #ifdef MI_NO_GETENV
 static bool mi_getenv(const char* name, char* result, size_t result_size) {
-  MI_UNUSED(name);
-  MI_UNUSED(result);
-  MI_UNUSED(result_size);
+  UNUSED(name);
+  UNUSED(result);
+  UNUSED(result_size);
   return false;
 }
 #else
@@ -548,29 +521,18 @@ static void mi_option_init(mi_option_desc_t* desc) {
       if (desc->option == mi_option_reserve_os_memory) {
         // this option is interpreted in KiB to prevent overflow of `long`
         if (*end == 'K') { end++; }
-        else if (*end == 'M') { value *= MI_KiB; end++; }
-        else if (*end == 'G') { value *= MI_MiB; end++; }
-        else { value = (value + MI_KiB - 1) / MI_KiB; }
-        if (end[0] == 'I' && end[1] == 'B') { end += 2; }
-        else if (*end == 'B') { end++; }
+        else if (*end == 'M') { value *= KiB; end++; }
+        else if (*end == 'G') { value *= MiB; end++; }
+        else { value = (value + KiB - 1) / KiB; }
+        if (*end == 'B') { end++; }
       }
       if (*end == 0) {
         desc->value = value;
         desc->init = INITIALIZED;
       }
       else {
-        // set `init` first to avoid recursion through _mi_warning_message on mimalloc_verbose.
+        _mi_warning_message("environment option mimalloc_%s has an invalid value: %s\n", desc->name, buf);
         desc->init = DEFAULTED;
-        if (desc->option == mi_option_verbose && desc->value == 0) {
-          // if the 'mimalloc_verbose' env var has a bogus value we'd never know
-          // (since the value defaults to 'off') so in that case briefly enable verbose
-          desc->value = 1;
-          _mi_warning_message("environment option mimalloc_%s has an invalid value.\n", desc->name );
-          desc->value = 0;
-        }
-        else {
-          _mi_warning_message("environment option mimalloc_%s has an invalid value.\n", desc->name );
-        }
       }
     }
     mi_assert_internal(desc->init != UNINIT);

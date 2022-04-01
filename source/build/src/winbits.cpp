@@ -79,7 +79,7 @@ void windowsSetupTimer(int const useNtTimer)
 
                 if (ntdll_NtQueryTimerResolution == nullptr || ntdll_NtSetTimerResolution == nullptr)
                 {
-                    LOG_F(ERROR, "NtQueryTimerResolution or NtSetTimerResolution symbols missing from ntdll.dll!");
+                    OSD_Printf("ERROR: unable to locate NtQueryTimerResolution or NtSetTimerResolution symbols in ntdll.dll!\n");
                     goto failsafe;
                 }
 
@@ -101,12 +101,12 @@ void windowsSetupTimer(int const useNtTimer)
                 timePeriod = 0;
 
                 if (!win_silentfocuschange)
-                    LOG_F(INFO, "Initialized %.1fms system timer", actualRes / 10000.0);
+                    OSD_Printf("Initialized %.1fms system timer\n", actualRes / 10000.0);
 
                 return;
             }
             else if (!win_silentfocuschange)
-                LOG_F(WARNING, "Low-latency timer mode not supported on battery power!");
+                OSD_Printf("Low-latency timer mode not supported on battery power!\n");
         }
         else if (ntTimerRes != 0)
         {
@@ -131,12 +131,12 @@ failsafe:
         ntTimerRes = 0;
 
         if (!win_silentfocuschange)
-            LOG_F(INFO, "Initialized %ums system timer", newPeriod);
+            OSD_Printf("Initialized %ums system timer\n", newPeriod);
 
         return;
     }
 
-    LOG_F(ERROR, "Unable to configure system timer!");
+    OSD_Printf("ERROR: unable to configure system timer!\n");
 }
 
 //
@@ -230,7 +230,7 @@ static void windowsPrintVersion(void)
         Bstrcat(&buf[len], osv.szCSDVersion);
     }
 
-    LOG_F(INFO, "OS: %s (build %lu.%lu.%lu)", buf, osv.dwMajorVersion, osv.dwMinorVersion, osv.dwBuildNumber);
+    initprintf("Running on %s (build %lu.%lu.%lu)\n", buf, osv.dwMajorVersion, osv.dwMinorVersion, osv.dwBuildNumber);
     Xfree(buf);
 }
 
@@ -339,7 +339,7 @@ void windowsPlatformInit(void)
             powrprof_PowerSetActiveScheme = (PFNPOWERSETACTIVESCHEME)(void(*))GetProcAddress(hPOWRPROF, "PowerSetActiveScheme");
 
             if (powrprof_PowerGetActiveScheme == nullptr || powrprof_PowerSetActiveScheme == nullptr)
-                LOG_F(ERROR, "PowerGetActiveScheme or PowerSetActiveScheme symbols missing from powrprof.dll!");
+                OSD_Printf("ERROR: unable to locate PowerGetActiveScheme or PowerSetActiveScheme symbols in powrprof.dll!\n");
             else if (!systemPowerSchemeGUID)
                 powrprof_PowerGetActiveScheme(NULL, &systemPowerSchemeGUID);
         }
@@ -412,7 +412,7 @@ dwm:
         BOOL compositionEnabled = false;
 
         if (SUCCEEDED(dwmapi_DwmIsCompositionEnabled(&compositionEnabled)) && compositionEnabled && dwmapi_DwmFlush() != S_OK)
-            LOG_F(ERROR, "Failed flushing DWM!");
+            OSD_Printf("debug: DWM flush FAILED!\n");
 
         return;
     }
@@ -426,7 +426,7 @@ dwm:
 
     if (activeAdapter.hDc == nullptr)
     {
-        LOG_F(ERROR, "null device context for display: %s windowx: %d windowy: %d.", mi.szDevice, windowx, windowy);
+        OSD_Printf("debug: CreateDC() FAILED! display: %s windowx: %d windowy: %d\n", mi.szDevice, windowx, windowy);
         useDWMsync = 1;
         goto dwm;
     }
@@ -445,16 +445,15 @@ dwm:
             if (NT_SUCCESS(status = gdi32_D3DKMTCloseAdapter((D3DKMT_CLOSEADAPTER *)&vBlankEvent)))
                 return;
             else
-                LOG_F(ERROR, "D3DKMTCloseAdapter() FAILED! NTSTATUS: 0x%x.", (unsigned)status);
+                OSD_Printf("debug: D3DKMTCloseAdapter() FAILED! NTSTATUS: 0x%x\n", (unsigned)status);
         }
         else
-            LOG_F(ERROR, "D3DKMTWaitForVerticalBlankEvent() FAILED! NTSTATUS: 0x%x.", (unsigned)status);
+            OSD_Printf("debug: D3DKMTWaitForVerticalBlankEvent() FAILED! NTSTATUS: 0x%x\n", (unsigned)status);
     }
     else
-        LOG_F(ERROR, "D3DKMTOpenAdapterFromHdc() FAILED! NTSTATUS: 0x%x.", (unsigned)status);
+        OSD_Printf("debug: D3DKMTOpenAdapterFromHdc() FAILED! NTSTATUS: 0x%x\n", (unsigned)status);
 
-    LOG_F(ERROR, "Unable to use D3DKMT, falling back to DWM sync.");
-
+    OSD_Printf("debug: D3DKMT failure, falling back to DWM sync\n");
     useDWMsync = 1;
     goto dwm;
 }
@@ -485,8 +484,7 @@ void windowsDwmSetupComposition(int const compEnable)
         HRESULT result = dwmapi_DwmGetCompositionTimingInfo(nullptr, &timingInfo);
 
         if (FAILED(result))
-            LOG_F(ERROR, "DwmGetCompositionTimingInfo() FAILED! HRESULT: %s (0x%x).",
-                         std::system_category().message(result).c_str(), (unsigned)result);
+            OSD_Printf("debug: DwmGetCompositionTimingInfo() FAILED! HRESULT: 0x%x (%s)\n", (unsigned)result, std::system_category().message(result).c_str());
     }
 
     if (win_togglecomposition && dwmapi_DwmEnableComposition && osv.dwMinorVersion < 2)
@@ -494,7 +492,7 @@ void windowsDwmSetupComposition(int const compEnable)
         dwmapi_DwmEnableComposition(compEnable);
 
         if (!win_silentvideomodeswitch)
-            VLOG_F(LOG_GFX, "%sabling DWM desktop composition", (compEnable) ? "En" : "Dis");
+            OSD_Printf("%sabling DWM desktop composition...\n", (compEnable) ? "En" : "Dis");
     }
 }
 
@@ -540,7 +538,7 @@ static char const * windowsDecodeKeyboardLayoutName(char const * keyboardLayout)
 
     if (!result)
     {
-        LOG_F(ERROR, "Unable to decode name for locale ID '%d': %s.", localeID, windowsGetErrorMessage(GetLastError()));
+        OSD_Printf("Error decoding name for locale ID %d: %s\n", localeID, windowsGetErrorMessage(GetLastError()));
         return keyboardLayout;
     }
 
@@ -559,12 +557,12 @@ void windowsSetKeyboardLayout(char const *layout, int focusChanged /*= 0*/)
     //if (!win_silentfocuschange)
     {
         if (focusChanged)
-            VLOG_F(LOG_GFX, "Window focus changed");
+            OSD_Printf("Focus change: ");
 
         if (layout == enUSLayoutString)
-            VLOG_F(LOG_INPUT, "Loaded %s keyboard layout", windowsDecodeKeyboardLayoutName(layout));
+            OSD_Printf("Loaded %s keyboard layout\n", windowsDecodeKeyboardLayoutName(layout));
         else
-            VLOG_F(LOG_INPUT, "Restored %s keyboard layout", windowsDecodeKeyboardLayoutName(layout));
+            OSD_Printf("Restored %s keyboard layout\n", windowsDecodeKeyboardLayoutName(layout));
     }
 
     static int enUSLoaded;
@@ -590,7 +588,7 @@ char *windowsGetSystemKeyboardLayoutName(void)
     if (!layoutSaved)
     {
         if (!GetKeyboardLayoutName(systemLayoutName))
-            LOG_F(ERROR, "Error determining system keyboard layout: %s.", windowsGetErrorMessage(GetLastError()));
+            OSD_Printf("Error determining system keyboard layout: %s\n", windowsGetErrorMessage(GetLastError()));
 
         layoutSaved = true;
     }
@@ -663,7 +661,7 @@ int windowsGetCommandLine(char **argvbuf)
 {
     int buildargc = 0;
 
-    *argvbuf = Bstrdup(GetCommandLine());
+    *argvbuf = Xstrdup(GetCommandLine());
 
     if (*argvbuf)
     {

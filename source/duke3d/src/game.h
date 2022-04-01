@@ -161,7 +161,7 @@ typedef struct ud_setup_s {
 typedef struct {
     vec3_t camerapos;
     int32_t const_visibility,uw_framerate;
-    int32_t camera_time,folfvel,folsvel,folavel,folx,foly,fola;
+    int32_t camera_time,folfvel,folavel,folx,foly,fola;
     int32_t reccnt,crosshairscale;
 
     int32_t runkey_mode,statusbarscale,mouseaiming,weaponswitch,drawweapon;   // JBF 20031125
@@ -175,7 +175,7 @@ typedef struct {
 
     int32_t entered_name,screen_tilting,shadows,fta_on,executions,auto_run;
     int32_t coords,showfps,levelstats,m_coop,coop,screen_size,lockout,crosshair;
-    int32_t playerai,obituaries;
+    int32_t playerai,angleinterpolation,obituaries;
 
     int32_t respawn_monsters,respawn_items,respawn_inventory,recstat,monsters_off,brightness;
     int32_t m_respawn_items,m_respawn_monsters,m_respawn_inventory,m_recstat,m_monsters_off,detail;
@@ -209,7 +209,6 @@ typedef struct {
 
     int32_t last_stateless_level, last_stateless_volume; // strictly internal
 
-
     struct {
         int32_t AutoAim;
         int32_t ShowWeapons;
@@ -217,7 +216,6 @@ typedef struct {
         int32_t JoystickAimWeight;
         int32_t JoystickViewCentering;
         int32_t JoystickAimAssist;
-        int32_t controllerRumble;
 
         // JBF 20031211: Store the input settings because
         // (currently) mact can't regurgitate them
@@ -283,6 +281,7 @@ extern user_defs ud;
 extern const char *s_buildDate;
 
 extern char boardfilename[BMAX_PATH], currentboardfilename[BMAX_PATH];
+extern char previousboardfilename[BMAX_PATH];
 #define USERMAPMUSICFAKEVOLUME MAXVOLUMES
 #define USERMAPMUSICFAKELEVEL (MAXLEVELS-1)
 #define USERMAPMUSICFAKESLOT ((USERMAPMUSICFAKEVOLUME * MAXLEVELS) + USERMAPMUSICFAKELEVEL)
@@ -304,7 +303,6 @@ extern char ror_protectedsectors[MAXSECTORS];
 #endif
 
 extern float r_ambientlight;
-extern int32_t r_pr_defaultlights;
 
 extern bool g_frameJustDrawn;
 extern uint64_t g_lastFrameStartTime;
@@ -317,7 +315,6 @@ extern uint32_t g_frameCounter;
 #define DRAWFRAME_DEFAULT_STACK_SIZE (704  * 1024)
 #define DRAWFRAME_MAX_STACK_SIZE     (1792 * 1024)
 
-extern int32_t g_vm_preempt;
 extern mco_coro* co_drawframe;
 extern void g_switchRoutine(mco_coro *co);
 
@@ -326,7 +323,7 @@ static FORCE_INLINE int dukeMaybeDrawFrame(void)
     // g_frameJustDrawn is set by G_DrawFrame() (and thus by the coroutine)
     // it isn't cleared until the next game tic is processed.
 
-    if (g_vm_preempt && !g_saveRequested && !g_frameJustDrawn && timerGetNanoTicks() >= g_lastFrameEndTime + (g_lastFrameEndTime - g_lastFrameStartTime - g_lastFrameDuration) && engineFPSLimit())
+    if (!g_saveRequested && !g_frameJustDrawn && timerGetNanoTicks() >= g_lastFrameEndTime + (g_lastFrameEndTime - g_lastFrameStartTime - g_lastFrameDuration) && engineFPSLimit())
     {
         g_switchRoutine(co_drawframe);
         return 1;
@@ -397,7 +394,7 @@ void G_HandleMirror(int32_t x, int32_t y, int32_t z, fix16_t a, fix16_t horiz, i
 void G_DrawRooms(int32_t playerNum,int32_t smoothratio);
 void G_DrawTXDigiNumZ(int32_t starttile,int32_t x,int32_t y,int32_t n,int32_t s,int32_t pal,int32_t cs,int32_t x1,int32_t y1,int32_t x2,int32_t y2,int32_t z);
 int engineFPSLimit(void);
-EDUKE32_NORETURN void G_GameExit(const char *msg = nullptr);
+void G_GameExit(const char *msg) ATTRIBUTE((noreturn));
 void G_GameQuit(void);
 void G_GetCrosshairColor(void);
 void G_HandleLocalKeys(void);

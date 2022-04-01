@@ -3,6 +3,7 @@
 #define VOIDWRAP_ISEXPORTING
 #include "voidwrap_steam.h"
 #include "steam_api.h"
+#include "compat.h"
 
 static uint64_t AppID;
 static VW_VOID_CONSTCHARPTR Callback_PrintDebug;
@@ -16,7 +17,7 @@ static void PrintDebug(const char * fmt, ...)
     va_list va;
 
     va_start(va, fmt);
-    vsnprintf(tmpstr, sizeof(tmpstr), fmt, va);
+    Bvsnprintf(tmpstr, sizeof(tmpstr), fmt, va);
     va_end(va);
 
     Callback_PrintDebug(tmpstr);
@@ -160,54 +161,6 @@ VOIDWRAP_API void Voidwrap_Steam_ResetStats()
     StatsAndAchievementsHandler->ResetStats();
 }
 
-class SteamFriendsHandler
-{
-public:
-    SteamFriendsHandler()
-        : m_pSteamFriends{SteamFriends()}
-    { }
-
-    void SetRichPresence(char const * key, char const * str);
-    void ClearRichPresence(void);
-
-private:
-    ISteamFriends * m_pSteamFriends;
-};
-
-void SteamFriendsHandler::SetRichPresence(char const * key, char const * str)
-{
-    if (nullptr == m_pSteamFriends)
-        return;
-
-    m_pSteamFriends->SetRichPresence(key, str);
-}
-
-void SteamFriendsHandler::ClearRichPresence(void)
-{
-    if (nullptr == m_pSteamFriends)
-        return;
-
-    m_pSteamFriends->ClearRichPresence();
-}
-
-static SteamFriendsHandler * FriendsHandler;
-
-VOIDWRAP_API void Voidwrap_Steam_SetRichPresence(char const * key, char const * str)
-{
-    if (nullptr == FriendsHandler)
-        return;
-
-    FriendsHandler->SetRichPresence(key, str);
-}
-
-VOIDWRAP_API void Voidwrap_Steam_ClearRichPresence(void)
-{
-    if (nullptr == FriendsHandler)
-        return;
-
-    FriendsHandler->ClearRichPresence();
-}
-
 #ifdef VWSCREENSHOT
 class SteamScreenshotHandler
 {
@@ -283,7 +236,6 @@ VOIDWRAP_API bool Voidwrap_Steam_Init()
 #endif
 
     StatsAndAchievementsHandler = new SteamStatsAndAchievementsHandler{};
-    FriendsHandler = new SteamFriendsHandler{};
 
 #ifdef VWSCREENSHOT
     SteamScreenshots()->HookScreenshots(true);

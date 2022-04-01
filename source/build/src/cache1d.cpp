@@ -93,8 +93,10 @@ void cache1d::initBuffer(intptr_t dacachestart, uint32_t dacachesize, uint32_t m
 
     reset();
 
-    DVLOG_F(LOG_DEBUG, "Cache object array initialized with %d entries.", m_maxBlocks);
-    LOG_F(INFO, "Initialized %.1fM cache", (float)(dacachesize/1024.f/1024.f));
+#ifdef DEBUGGINGAIDS
+    buildprint("Cache object array initialized with ", m_maxBlocks, " entries.\n");
+#endif
+    initprintf("Initialized %.1fM cache\n", (float)(dacachesize/1024.f/1024.f));
 }
 
 // Dynamic cache resizing -- increase cache array size when full
@@ -109,8 +111,11 @@ void cache1d::inc_and_check_cacnum(void)
 
         Xaligned_free(m_index);
         m_index = new_index;
+
+#ifdef DEBUGGINGAIDS
+        buildprint("Cache increased from \'", m_maxBlocks, "\' to \'", m_maxBlocks + MINCACHEINDEXSIZE, "\' entries.\n");
+#endif
         m_maxBlocks += MINCACHEINDEXSIZE;
-        DLOG_F(INFO, "Cache size increased by %d to new max of %d entries", MINCACHEINDEXSIZE, m_maxBlocks);
     }
 }
 
@@ -164,8 +169,7 @@ int32_t cache1d::findBlock(int32_t const newbytes, int32_t * const besto, int32_
 
 void cache1d::tryHarder(int32_t const newbytes, int32_t *const besto, int32_t *const bestz)
 {
-    LOG_F(WARNING, "Request for %dKB block exhausted cache!", newbytes >> 10);    
-    LOG_F(WARNING, "Attempting to make it fit...");
+    buildprint("WARNING: request for ", newbytes >> 10, " KB block exhausted cache!\nAttempting to make it fit...\n");
 
     if (m_minBlockSize > MINCACHEBLOCKSIZE)
         m_minBlockSize >>= 1;
@@ -199,8 +203,8 @@ void cache1d::allocateBlock(intptr_t* newhandle, int32_t newbytes, char* newlock
 
     if (EDUKE32_PREDICT_FALSE((unsigned)newbytes > (unsigned)m_totalSize))
     {
-        LOG_F(ERROR, "Cache size: %d", m_totalSize);
-        LOG_F(ERROR, "*Newhandle: 0x%08" PRIxPTR ", Newbytes: %d, *Newlock: %d", (intptr_t)newhandle, newbytes, *newlockptr);
+        buildprint("Cache size: ", m_totalSize, "\n");
+        buildprint("*Newhandle: 0x", hex((intptr_t)newhandle),", Newbytes: ", newbytes, ", *Newlock: ", *newlockptr, "\n");
         report();
         fatal_exit("BUFFER TOO BIG TO FIT IN CACHE!");
     }
@@ -305,64 +309,45 @@ void cache1d::report(void)
         if (waloff[j])
             inthash_add(&h_blocktotile, waloff[j], j, true);
 
-    auto buf = (char*)Balloca(64);
-
-    for (int i = 0; i < m_numBlocks-1; i++)
+    for (native_t i = 0; i < m_numBlocks-1; i++)
     {
-        buf[0] = '\0';
-        Bsnprintf(buf, 64, "CAC:%4d ", i);
+        buildprint("CAC:", i, " ");
 
-        int len = Bstrlen(buf);
-
-        if (m_index[i].hand)            
-        {
-            Bsnprintf(buf+len, 64-len, "OFS:0x%08x ", (int32_t)(*m_index[i].hand - m_baseAddress));
-            len = Bstrlen(buf);
-        }
+        if (m_index[i].hand)
+            buildprint("OFS:0x", hex((int32_t)(*m_index[i].hand - m_baseAddress)), " ");
         else
         {
-            Bstrcat(buf, "FREE");
-            LOG_F(INFO, buf);
+            buildprint("FREE\n");
             continue;
         }
 
-        Bsnprintf(buf+len, 64-len, "SIZ:%5db ", m_index[i].leng);
-        len = Bstrlen(buf);
-
-        unusable += m_index[i].ovh;
-
-        Bsnprintf(buf+len, 64-len, "WSTD:%4db ", m_index[i].ovh);
-        len = Bstrlen(buf);
+        buildprint("SIZ:", m_index[i].leng, " ");
 
         if (m_index[i].lock)
         {
-            Bsnprintf(buf+len, 64-len, "LCK:%d ", *m_index[i].lock);
+            buildprint("LCK:", *m_index[i].lock, " ");
 
             if (*m_index[i].lock)
                 usedSize += m_index[i].leng;
         }
         else
-            Bsnprintf(buf+len, 64-len, "LCK:NULL ");
-
-        len = Bstrlen(buf);
+            buildprint("LCK: NULL ");
 
         int const tile = inthash_find(&h_blocktotile, *m_index[i].hand);
 
         if (tile != -1)
-        {
-            Bsnprintf(buf+len, 64-len, "PIC:%5d ", tile);
-            len = Bstrlen(buf);
-        }
+            buildprint("PIC:", tile, " ");
 
-        LOG_F(INFO, buf);
+        unusable += m_index[i].ovh;
+        buildprint("OVH:", m_index[i].ovh, "\n");
     }
     
-    LOG_F(INFO, "Cache size:  %dKB", m_totalSize >> 10);
-    LOG_F(INFO, "Used:        %dKB", usedSize >> 10);
-    LOG_F(INFO, "Remaining:   %dKB", (m_totalSize - usedSize) >> 10);
-    LOG_F(INFO, "Block count: %d/%d",m_numBlocks, m_maxBlocks);
+    buildprint("Cache size:  ", m_totalSize >> 10, " KB\n"
+               "Used:        ", usedSize >> 10, " KB\n"
+               "Remaining:   ", (m_totalSize - usedSize) >> 10, " KB\n"
+               "Block count: ", m_numBlocks, "/", m_maxBlocks, "\n");
 
-    LOG_F(INFO, "%d KB (%.2f%%) space made unusable by %d KB block alignment.", unusable >> 10, (float)unusable / m_totalSize * 100.f,
+    initprintf("%d KB (%.2f%%) space made unusable by %d KB block alignment.\n", unusable >> 10, (float)unusable / m_totalSize * 100.f,
                m_minBlockSize >> 10);
 
     inthash_free(&h_blocktotile);

@@ -119,10 +119,12 @@ const char *SDLDrv_ErrorString(int ErrorNumber)
 #if SDL_MAJOR_VERSION >= 2
 void SDLDrv_PCM_PrintDrivers(void)
 {
-    LOG_F(INFO, "Available audio drivers:");
+    MV_Printf("Available audio drivers: ");
 
     for (int i = 0; i < SDL_GetNumAudioDrivers(); ++i)
-        LOG_F(INFO, "%s", SDL_GetAudioDriver(i));
+        MV_Printf("%s ", SDL_GetAudioDriver(i));
+
+    MV_Printf("\n");
 }
 
 int SDLDrv_PCM_CheckDriverName(char const *dev)
@@ -228,15 +230,14 @@ int SDLDrv_PCM_Init(int *mixrate, int *numchannels, void * initdata)
     else
         pdevname = devname;
 
-    VLOG_F(LOG_ASS, "Using SDL %s driver on %s", drivername, pdevname);
+    MV_Printf("SDL %s driver on %s", drivername, pdevname);
 
     Xfree(devname);
     Xfree(drivername);
 #else
     char drivernamestr[64] = "(error)";
     SDL_AudioDriverName(drivernamestr, sizeof(drivernamestr));
-    VLOG_F(LOG_ASS, "Using SDL %s driver", drivernamestr);
-    VLOG_F(LOG_ASS, "SDL %s driver", drivernamestr);
+    MV_Printf("SDL %s driver", drivernamestr);
 
     if (actual.freq == 0 || actual.channels == 0)
     {

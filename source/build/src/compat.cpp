@@ -57,7 +57,7 @@ void  _xaligned_free(void *const ptr) { xaligned_free(ptr); }
 }
 #endif
 
-void handle_memerr(void)
+void *handle_memerr(void)
 {
     debug_break();
 
@@ -630,15 +630,13 @@ size_t Bgetsysmemsize(void)
 
         if (!aGlobalMemoryStatusEx || siz == 0)
         {
-            LOG_F(ERROR, "Couldn't determine system memory size with GlobalMemoryStatusEx()!");
+            initprintf("Bgetsysmemsize(): error determining system memory size!\n");
             siz = UINT32_MAX;
         }
 
         FreeLibrary(lib);
     }
-    else
-        LOG_F(ERROR, "Unable to load KERNEL32.DLL.");
-
+    else initprintf("Bgetsysmemsize(): unable to load KERNEL32.DLL!\n");
 #elif (defined(_SC_PAGE_SIZE) || defined(_SC_PAGESIZE)) && defined(_SC_PHYS_PAGES) && !defined(GEKKO)
 #ifdef _SC_PAGE_SIZE
     int64_t const scpagesiz = sysconf(_SC_PAGE_SIZE);

@@ -27,7 +27,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "compat.h"
 #include "pragmas.h"
 #include "vfs.h"
-#include "function.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,8 +36,6 @@ extern "C" {
 # define EDUKE32_RETAIL_MENU
 # define EDUKE32_ANDROID_MENU
 #endif
-
-extern int32_t kbo_type_cvar;
 
 // #define EDUKE32_SIMPLE_MENU
 
@@ -70,7 +67,7 @@ enum MenuIndex_t {
     MENU_TOUCHSENS      = 215,
     MENU_TOUCHBUTTONS   = 216,
     MENU_CONTROLS       = 220,
-    MENU_RENDERER       = 230,
+    MENU_POLYMOST       = 230,
     MENU_COLCORR        = 231,
     MENU_COLCORR_INGAME = 232,
     MENU_SCREENSETUP    = 233,
@@ -211,7 +208,7 @@ typedef struct MenuOptionSet_t
     int32_t scrollPos;
 
     // appearance
-    uint8_t features; // bit 1 = disable left/right arrows, bit 2 = disable list, bit 4 = unsorted list
+    uint8_t features; // bit 1 = disable left/right arrows, bit 2 = disable list
 
     int32_t getMarginBottom() const { return mulscale16(entryFormat->marginBottom, font->zoom); }
     int32_t getIndent() const { return mulscale16(entryFormat->indent, font->zoom); }
@@ -247,9 +244,6 @@ typedef struct MenuCustom2Col_t
 
     // state
     int8_t screenOpen;
-
-    // decoupled link (e.g. gamefunc index)
-    int32_t linkIndex;
 } MenuCustom2Col_t;
 
 enum MenuRangeFlags_t

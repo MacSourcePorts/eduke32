@@ -40,7 +40,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 struct osdcmd_cheatsinfo osdcmd_cheatsinfo_stat;
 float r_ambientlight = 1.0, r_ambientlightrecip = 1.0;
-int32_t r_pr_defaultlights = 1;
 
 uint32_t cl_cheatmask;
 
@@ -76,7 +75,7 @@ static int osdcmd_changelevel(osdcmdptr_t parm)
 
     if (level > MAXLEVELS || g_mapInfo[volume * MAXLEVELS + level].filename == NULL)
     {
-        LOG_F(WARNING, "changelevel: no map defined for episode %d level %d", volume + 1, level + 1);
+        OSD_Printf("changelevel: no map defined for episode %d level %d\n", volume + 1, level + 1);
         return OSDCMD_SHOWHELP;
     }
 
@@ -161,7 +160,7 @@ static int osdcmd_map(osdcmdptr_t parm)
     {
         BUILDVFS_FIND_REC *r;
         fnlist_t fnlist = FNLIST_INITIALIZER;
-        int maxwidth = 0;
+        int32_t maxwidth = 0;
 
         if (wildcardp)
             maybe_append_ext(filename, sizeof(filename), parm->parms[0], ".map");
@@ -175,41 +174,21 @@ static int osdcmd_map(osdcmdptr_t parm)
 
         if (maxwidth > 0)
         {
-            int const cols = OSD_GetCols();
-            int x = 0;
+            int32_t x = 0;
             maxwidth += 3;
-
-            auto buf = (char*)Balloca(cols+maxwidth);
-            buf[0] = 0;
-
-            LOG_F(INFO, "Map listing:");
-
-            auto buf2 = (char*)Balloca(cols);
-
+            OSD_Printf(OSDTEXT_RED "Map listing:\n");
             for (r=fnlist.findfiles; r; r=r->next)
             {
-                buf2[0] = 0;
-
-                size_t inc = 0;
-
-                inc = Bsnprintf(buf2, cols, "%-*s", maxwidth, r->name);
-
-                Bstrcat(buf, buf2);
-
-                x += inc;
-
-                if (x > cols-maxwidth)
+                OSD_Printf("%-*s",maxwidth,r->name);
+                x += maxwidth;
+                if (x > OSD_GetCols() - maxwidth)
                 {
                     x = 0;
-                    OSD_Printf("%s\n", buf);
-                    buf[0] = 0;
+                    OSD_Printf("\n");
                 }
             }
-
-            if (x)
-                OSD_Printf("%s\n", buf);
-
-            LOG_F(INFO, "Found %d maps.", fnlist.numfiles);
+            if (x) OSD_Printf("\n");
+            OSD_Printf(OSDTEXT_RED "Found %d maps\n", fnlist.numfiles);
         }
 
         fnlist_clearnames(&fnlist);
@@ -222,7 +201,7 @@ static int osdcmd_map(osdcmdptr_t parm)
     buildvfs_kfd ii;
     if ((ii = kopen4loadfrommod(filename,0)) == buildvfs_kfd_invalid)
     {
-        LOG_F(ERROR, "map: file %s not found.", filename);
+        OSD_Printf(OSD_ERROR "map: file \"%s\" not found.\n", filename);
         return OSDCMD_OK;
     }
     kclose(ii);
@@ -317,13 +296,13 @@ static int osdcmd_demo(osdcmdptr_t parm)
 {
     if (numplayers > 1)
     {
-        LOG_F(WARNING, "Command \"demo\" not allowed in multiplayer.");
+        OSD_Printf("Command not allowed in multiplayer\n");
         return OSDCMD_OK;
     }
 
     if (g_player[myconnectindex].ps->gm & MODE_GAME)
     {
-        LOG_F(WARNING, "Command \"demo\" can only be used outside of an active game.");
+        OSD_Printf("demo: Must not be in a game.\n");
         return OSDCMD_OK;
     }
 
@@ -348,7 +327,7 @@ static int osdcmd_activatecheat(osdcmdptr_t parm)
     if (numplayers == 1 && g_player[myconnectindex].ps->gm & MODE_GAME)
         osdcmd_cheatsinfo_stat.cheatnum = Batoi(parm->parms[0]);
     else
-        LOG_F(WARNING, "Command \"activatecheat\" can only be used in a single-player game.");
+        OSD_Printf("activatecheat: Not in a single-player game.\n");
 
     return OSDCMD_OK;
 }
@@ -359,7 +338,7 @@ static int osdcmd_god(osdcmdptr_t UNUSED(parm))
     if (numplayers == 1 && g_player[myconnectindex].ps->gm & MODE_GAME)
         osdcmd_cheatsinfo_stat.cheatnum = CHEAT_CORNHOLIO;
     else
-        LOG_F(WARNING, "Command \"god\" can only be used in a single-player game.");
+        OSD_Printf("god: Not in a single-player game.\n");
 
     return OSDCMD_OK;
 }
@@ -378,7 +357,7 @@ static int osdcmd_maxhealth(osdcmdptr_t parm)
         sprite[pPlayer->i].extra = newHealth;
     }
     else
-        LOG_F(WARNING, "Command \"maxhealth\" can only be used in a single-player game.");
+        OSD_Printf("maxhealth: Not in a single-player game.\n");
 
     return OSDCMD_OK;
 }
@@ -393,7 +372,7 @@ static int osdcmd_noclip(osdcmdptr_t UNUSED(parm))
     }
     else
     {
-        LOG_F(WARNING, "Command \"noclip\" can only be used in a single-player game.");
+        OSD_Printf("noclip: Not in a single-player game.\n");
     }
 
     return OSDCMD_OK;
@@ -429,7 +408,7 @@ static int osdcmd_music(osdcmdptr_t parm)
 
         if (sel == -2)
         {
-            LOG_F(ERROR, "'%s' is not a valid episode/level number pair", parm->parms[0]);
+            OSD_Printf("%s is not a valid episode/level number pair\n", parm->parms[0]);
             return OSDCMD_OK;
         }
 
@@ -439,7 +418,7 @@ static int osdcmd_music(osdcmdptr_t parm)
         }
         else
         {
-            LOG_F(WARNING, "No music defined for episode/level number pair '%s'", parm->parms[0]);
+            OSD_Printf("No music defined for %s\n", parm->parms[0]);
         }
 
         return OSDCMD_OK;
@@ -453,7 +432,7 @@ int osdcmd_restartvid(osdcmdptr_t UNUSED(parm))
     UNREFERENCED_CONST_PARAMETER(parm);
     videoResetMode();
     if (videoSetGameMode(ud.setup.fullscreen,ud.setup.xdim,ud.setup.ydim,ud.setup.bpp,ud.detail))
-        G_GameExit("Unable to set video mode!");
+        G_GameExit("restartvid: Reset failed...\n");
     onvideomodechange(ud.setup.bpp>8);
     G_UpdateScreenArea();
 
@@ -505,9 +484,9 @@ static int osdcmd_vidmode(osdcmdptr_t parm)
 
     if (videoSetGameMode(newfs,newwidth,newheight,newbpp,upscalefactor))
     {
-        LOG_F(ERROR, "Failed to set video mode!");
+        initprintf("vidmode: Mode change failed!\n");
         if (videoSetGameMode(ud.setup.fullscreen, ud.setup.xdim, ud.setup.ydim, ud.setup.bpp, upscalefactor))
-            G_GameExit("Failed to set video mode!");
+            G_GameExit("vidmode: Reset failed!\n");
     }
     ud.setup.bpp = newbpp;
     ud.setup.xdim = newwidth;
@@ -529,7 +508,7 @@ static int osdcmd_spawn(osdcmdptr_t parm)
 
     if (numplayers > 1 || !(g_player[myconnectindex].ps->gm & MODE_GAME))
     {
-        LOG_F(WARNING, "Command \"spawn\" can only be used in a single-player game.");
+        OSD_Printf("spawn: Can't spawn sprites in multiplayer games or demos\n");
         return OSDCMD_OK;
     }
 
@@ -579,14 +558,14 @@ static int osdcmd_spawn(osdcmdptr_t parm)
             }
             if (i==g_labelCnt)
             {
-                LOG_F(WARNING, "Invalid label for spawn command!");
+                OSD_Printf("spawn: Invalid tile label given\n");
                 return OSDCMD_OK;
             }
         }
 
         if ((uint32_t)picnum >= MAXUSERTILES)
         {
-            LOG_F(WARNING, "Invalid tile for spawn command!");
+            OSD_Printf("spawn: Invalid tile number\n");
             return OSDCMD_OK;
         }
         break;
@@ -603,7 +582,7 @@ static int osdcmd_spawn(osdcmdptr_t parm)
     {
         if (setsprite(idx, &vect) < 0)
         {
-            LOG_F(WARNING, "Invalid sprite coordinates for spawn command!");
+            OSD_Printf("spawn: Sprite can't be spawned into null space\n");
             A_DeleteSprite(idx);
         }
     }
@@ -615,7 +594,7 @@ static int osdcmd_setvar(osdcmdptr_t parm)
 {
     if (numplayers > 1)
     {
-        LOG_F(WARNING, "Command \"setvar\" can only be used in a single-player game.");
+        OSD_Printf("Command not allowed in multiplayer\n");
         return OSDCMD_OK;
     }
 
@@ -629,12 +608,12 @@ static int osdcmd_setvar(osdcmdptr_t parm)
     {
         Gv_SetVar(i, newValue, g_player[myconnectindex].ps->i, myconnectindex);
 
-        LOG_F(INFO, "Variable '%s' now has value %d (input: %d)", aGameVars[i].szLabel,
+        OSD_Printf("Variable \"%s\" now has value %d (input: %d)\n", aGameVars[i].szLabel,
                    Gv_GetVar(i, g_player[myconnectindex].ps->i, myconnectindex), newValue);
     }
     else
     {
-        LOG_F(ERROR, "Invalid variable '%s' for setvar command!", parm->parms[0]);
+        OSD_Printf("setvar: \"%s\" is not a game variable!\n", parm->parms[0]);
         return OSDCMD_SHOWHELP;
     }
 
@@ -645,7 +624,7 @@ static int osdcmd_addlogvar(osdcmdptr_t parm)
 {
     if (numplayers > 1)
     {
-        LOG_F(WARNING, "Command \"addlogvar\" can only be used in a single-player game.");
+        OSD_Printf("Command not allowed in multiplayer\n");
         return OSDCMD_OK;
     }
 
@@ -655,10 +634,10 @@ static int osdcmd_addlogvar(osdcmdptr_t parm)
     int const i = hash_find(&h_gamevars, parm->parms[0]);
 
     if (i >= 0)
-        LOG_F(INFO, "Variable '%s' has value %d, default %d", parm->parms[0], Gv_GetVar(i, g_player[screenpeek].ps->i, screenpeek), (int)aGameVars[i].defaultValue);
+        OSD_Printf("Variable \"%s\" has value %d, default %d\n", parm->parms[0], Gv_GetVar(i, g_player[screenpeek].ps->i, screenpeek), (int)aGameVars[i].defaultValue);
     else
     {
-        LOG_F(ERROR, "Invalid variable '%s' for addlogvar command!", parm->parms[0]);
+        OSD_Printf("addlogvar: %s is not a game variable!\n", parm->parms[0]);
         return OSDCMD_SHOWHELP;
     }
 
@@ -669,7 +648,7 @@ static int osdcmd_setactorvar(osdcmdptr_t parm)
 {
     if (numplayers > 1)
     {
-        LOG_F(WARNING, "Command \"setactorvar\" can only be used in a single-player game.");
+        OSD_Printf("Command not allowed in multiplayer\n");
         return OSDCMD_OK;
     }
 
@@ -680,7 +659,7 @@ static int osdcmd_setactorvar(osdcmdptr_t parm)
 
     if ((unsigned)spriteNum >= MAXSPRITES)
     {
-        LOG_F(ERROR, "Invalid sprite '%s' for setactorvar command!", parm->parms[0]);
+        OSD_Printf("setactorvar: Invalid sprite number!\n");
         return OSDCMD_OK;
     }
 
@@ -692,12 +671,12 @@ static int osdcmd_setactorvar(osdcmdptr_t parm)
     {
         Gv_SetVar(i, newValue, spriteNum, myconnectindex);
 
-        LOG_F(INFO, "Variable '%s' for sprite %d now has value %d (input: %d)", aGameVars[i].szLabel, spriteNum,
+        OSD_Printf("Variable \"%s\" for sprite %d value is now %d (input: %d)\n", aGameVars[i].szLabel, spriteNum,
                    Gv_GetVar(i, g_player[myconnectindex].ps->i, myconnectindex), newValue);
     }
     else
     {
-        LOG_F(ERROR, "Invalid variable '%s' for setactorvar command!", parm->parms[1]);
+        OSD_Printf("setactorvar: %s is not a game variable!\n", parm->parms[1]);
         return OSDCMD_SHOWHELP;
     }
 
@@ -731,7 +710,7 @@ static int osdcmd_cmenu(osdcmdptr_t parm)
 
     if (numplayers > 1)
     {
-        LOG_F(WARNING, "Command \"cmenu\" can only be used in a single-player game.");
+        OSD_Printf("Command not allowed in multiplayer\n");
         return OSDCMD_OK;
     }
 
@@ -750,7 +729,7 @@ static int osdcmd_crosshaircolor(osdcmdptr_t parm)
 {
     if (parm->numparms != 3)
     {
-        LOG_F(INFO, "crosshaircolor: r:%d g:%d b:%d",CrosshairColors.r,CrosshairColors.g,CrosshairColors.b);
+        OSD_Printf("crosshaircolor: r:%d g:%d b:%d\n",CrosshairColors.r,CrosshairColors.g,CrosshairColors.b);
         return OSDCMD_SHOWHELP;
     }
 
@@ -761,7 +740,7 @@ static int osdcmd_crosshaircolor(osdcmdptr_t parm)
     G_SetCrosshairColor(r,g,b);
 
     if (!OSD_ParsingScript())
-        LOG_F(INFO, parm->raw);
+        OSD_Printf("%s\n", parm->raw);
 
     return OSDCMD_OK;
 }
@@ -773,7 +752,7 @@ static int osdcmd_give(osdcmdptr_t parm)
     if (numplayers != 1 || (g_player[myconnectindex].ps->gm & MODE_GAME) == 0 ||
             g_player[myconnectindex].ps->dead_flag != 0)
     {
-        LOG_F(INFO, "Cannot use give command while dead or not in a single-player game.");
+        OSD_Printf("give: Cannot give while dead or not in a single-player game.\n");
         return OSDCMD_OK;
     }
 
@@ -875,9 +854,9 @@ static int osdcmd_bind(osdcmdptr_t parm)
     if (parm->numparms==1 && !Bstrcasecmp(parm->parms[0],"showkeys"))
     {
         for (auto & s : sctokeylut)
-            LOG_F(INFO, s.key);
+            OSD_Printf("%s\n", s.key);
         for (auto ConsoleButton : ConsoleButtons)
-            LOG_F(INFO, ConsoleButton);
+            OSD_Printf("%s\n",ConsoleButton);
         return OSDCMD_OK;
     }
 
@@ -885,18 +864,18 @@ static int osdcmd_bind(osdcmdptr_t parm)
     {
         int j=0;
 
-        LOG_F(INFO, "Current key bindings:");
+        OSD_Printf("Current key bindings:\n");
 
         for (int i=0; i<MAXBOUNDKEYS+MAXMOUSEBUTTONS; i++)
             if (CONTROL_KeyIsBound(i))
             {
                 j++;
-                LOG_F(INFO, "%-9s %s\"%s\"", CONTROL_KeyBinds[i].key, CONTROL_KeyBinds[i].repeat?"":"norepeat ",
+                OSD_Printf("%-9s %s\"%s\"\n", CONTROL_KeyBinds[i].key, CONTROL_KeyBinds[i].repeat?"":"norepeat ",
                            CONTROL_KeyBinds[i].cmdstr);
             }
 
         if (j == 0)
-            LOG_F(INFO, "No binds found.");
+            OSD_Printf("No binds found.\n");
 
         return OSDCMD_OK;
     }
@@ -922,9 +901,9 @@ static int osdcmd_bind(osdcmdptr_t parm)
         if (parm->numparms < 2)
         {
             if (CONTROL_KeyBinds[MAXBOUNDKEYS + i].cmdstr && CONTROL_KeyBinds[MAXBOUNDKEYS + i ].key)
-                LOG_F(INFO, "%-9s %s\"%s\"", ConsoleButtons[i], CONTROL_KeyBinds[MAXBOUNDKEYS + i].repeat?"":"norepeat ",
+                OSD_Printf("%-9s %s\"%s\"\n", ConsoleButtons[i], CONTROL_KeyBinds[MAXBOUNDKEYS + i].repeat?"":"norepeat ",
                 CONTROL_KeyBinds[MAXBOUNDKEYS + i].cmdstr);
-            else LOG_F(INFO, "'%s' is unbound", ConsoleButtons[i]);
+            else OSD_Printf("%s is unbound\n", ConsoleButtons[i]);
             return OSDCMD_OK;
         }
 
@@ -947,16 +926,16 @@ static int osdcmd_bind(osdcmdptr_t parm)
         CONTROL_BindMouse(i, tempbuf, repeat, ConsoleButtons[i]);
 
         if (!OSD_ParsingScript())
-            LOG_F(INFO, parm->raw);
+            OSD_Printf("%s\n",parm->raw);
         return OSDCMD_OK;
     }
 
     if (parm->numparms < 2)
     {
         if (CONTROL_KeyIsBound(sctokeylut[i].sc))
-            LOG_F(INFO, "%-9s %s\"%s\"", sctokeylut[i].key, CONTROL_KeyBinds[sctokeylut[i].sc].repeat?"":"norepeat ",
+            OSD_Printf("%-9s %s\"%s\"\n", sctokeylut[i].key, CONTROL_KeyBinds[sctokeylut[i].sc].repeat?"":"norepeat ",
                        CONTROL_KeyBinds[sctokeylut[i].sc].cmdstr);
-        else LOG_F(INFO, "'%s' is unbound", sctokeylut[i].key);
+        else OSD_Printf("%s is unbound\n", sctokeylut[i].key);
 
         return OSDCMD_OK;
     }
@@ -1012,7 +991,7 @@ static int osdcmd_bind(osdcmdptr_t parm)
     }
 
     if (!OSD_ParsingScript())
-        LOG_F(INFO, parm->raw);
+        OSD_Printf("%s\n",parm->raw);
 
     return OSDCMD_OK;
 }
@@ -1031,7 +1010,7 @@ static int osdcmd_unbindall(osdcmdptr_t UNUSED(parm))
         KeyboardKey[0] = KeyboardKey[1] = 0xff;
 
     if (!OSD_ParsingScript())
-        LOG_F(INFO, "unbound all controls");
+        OSD_Printf("unbound all controls\n");
 
     return OSDCMD_OK;
 }
@@ -1054,7 +1033,7 @@ static int osdcmd_unbind(osdcmdptr_t parm)
                 if (KeyboardKey[1] == ConsoleKey.sc)
                     KeyboardKey[1] = 0xff;
             }
-            LOG_F(INFO, "unbound %s", ConsoleKey.key);
+            OSD_Printf("unbound key %s\n", ConsoleKey.key);
             return OSDCMD_OK;
         }
     }
@@ -1064,7 +1043,7 @@ static int osdcmd_unbind(osdcmdptr_t parm)
         if (!Bstrcasecmp(parm->parms[0], ConsoleButtons[i]))
         {
             CONTROL_FreeMouseBind(i);
-            LOG_F(INFO, "unbound %s", ConsoleButtons[i]);
+            OSD_Printf("unbound %s\n", ConsoleButtons[i]);
             return OSDCMD_OK;
         }
     }
@@ -1089,7 +1068,7 @@ static int osdcmd_quicksave(osdcmdptr_t UNUSED(parm))
 {
     UNREFERENCED_CONST_PARAMETER(parm);
     if (!(g_player[myconnectindex].ps->gm & MODE_GAME))
-        LOG_F(INFO, "Can't quicksave while not in a game.");
+        OSD_Printf("quicksave: not in a game.\n");
     else g_doQuickSave = 1;
     return OSDCMD_OK;
 }
@@ -1098,7 +1077,7 @@ static int osdcmd_quickload(osdcmdptr_t UNUSED(parm))
 {
     UNREFERENCED_CONST_PARAMETER(parm);
     if (!(g_player[myconnectindex].ps->gm & MODE_GAME))
-        LOG_F(INFO, "Can't quickload while not in a game.");
+        OSD_Printf("quickload: not in a game.\n");
     else g_doQuickSave = 2;
     return OSDCMD_OK;
 }
@@ -1139,13 +1118,13 @@ static int osdcmd_inittimer(osdcmdptr_t parm)
 {
     if (parm->numparms != 1)
     {
-        LOG_F(INFO, "%dHz timer",g_timerTicsPerSecond);
+        OSD_Printf("%dHz timer\n",g_timerTicsPerSecond);
         return OSDCMD_SHOWHELP;
     }
 
     G_InitTimer(Batol(parm->parms[0]));
 
-    LOG_F(INFO, parm->raw);
+    OSD_Printf("%s\n",parm->raw);
     return OSDCMD_OK;
 }
 
@@ -1156,7 +1135,7 @@ static int osdcmd_name(osdcmdptr_t parm)
 
     if (parm->numparms != 1)
     {
-        LOG_F(INFO, "'name' is '%s'",szPlayerName);
+        OSD_Printf("\"name\" is \"%s\"\n",szPlayerName);
         return OSDCMD_SHOWHELP;
     }
 
@@ -1168,7 +1147,7 @@ static int osdcmd_name(osdcmdptr_t parm)
     Bstrncpy(szPlayerName,tempbuf,sizeof(szPlayerName)-1);
     szPlayerName[sizeof(szPlayerName)-1] = '\0';
     CommandName = nullptr;
-    LOG_F(INFO, "name %s",szPlayerName);
+    OSD_Printf("name %s\n",szPlayerName);
 
     Net_SendClientInfo();
 
@@ -1186,14 +1165,18 @@ static int osdcmd_dumpmapstate(osdfuncparm_t const * const)
 
 static int osdcmd_playerinfo(osdfuncparm_t const * const)
 {
-    LOG_F(INFO, "Your player index is %d.", myconnectindex);
+    OSD_Printf("Your player index is %d.\n", myconnectindex);
 
     for(int32_t playerIndex = 0; playerIndex < MAXPLAYERS; playerIndex++)
     {
         if(g_player[playerIndex].ps == nullptr)
-            LOG_F(INFO, "g_player[%d]: ps unallocated.", playerIndex);
+        {
+            OSD_Printf("g_player[%d]: ps unallocated.\n", playerIndex);
+        }
         else
-            LOG_F(INFO, "g_player[%d]: ps->i is %d.", playerIndex, g_player[playerIndex].ps->i);
+        {
+            OSD_Printf("g_player[%d]: ps->i is %d.\n", playerIndex, g_player[playerIndex].ps->i);
+        }
     }
 
     return OSDCMD_OK;
@@ -1238,11 +1221,11 @@ static int osdcmd_listplayers(osdcmdptr_t parm)
 
     if (!g_netServer)
     {
-        LOG_F(INFO, "Only the server can list active clients.");
+        initprintf("You are not the server.\n");
         return OSDCMD_OK;
     }
 
-    LOG_F(INFO, "Connected clients:");
+    initprintf("Connected clients:\n");
 
     for (currentPeer = g_netServer -> peers;
             currentPeer < & g_netServer -> peers [g_netServer -> peerCount];
@@ -1252,7 +1235,7 @@ static int osdcmd_listplayers(osdcmdptr_t parm)
             continue;
 
         enet_address_get_host_ip(&currentPeer->address, ipaddr, sizeof(ipaddr));
-        LOG_F(INFO, "%s %s", ipaddr, g_player[(intptr_t)currentPeer->data].user_name);
+        initprintf("%s %s\n", ipaddr, g_player[(intptr_t)currentPeer->data].user_name);
     }
 
     return OSDCMD_OK;
@@ -1269,7 +1252,7 @@ static int osdcmd_kick(osdcmdptr_t parm)
 
     if (!g_netServer)
     {
-        LOG_F(INFO, "Only the server can kick players.");
+        initprintf("You are not the server.\n");
         return OSDCMD_OK;
     }
 
@@ -1284,13 +1267,14 @@ static int osdcmd_kick(osdcmdptr_t parm)
 
         if (currentPeer->address.host == hexaddr)
         {
-            VLOG_F(LOG_NET, "Kicking %s (%x)", g_player[(intptr_t)currentPeer->data].user_name, currentPeer->address.host);
+            initprintf("Kicking %x (%s)\n", currentPeer->address.host,
+                       g_player[(intptr_t)currentPeer->data].user_name);
             enet_peer_disconnect(currentPeer, DISC_KICKED);
             return OSDCMD_OK;
         }
     }
 
-    LOG_F(INFO, "Player %s not found.", parm->parms[0]);
+    initprintf("Player %s not found!\n", parm->parms[0]);
     osdcmd_listplayers(NULL);
 
     return OSDCMD_OK;
@@ -1306,7 +1290,7 @@ static int osdcmd_kickban(osdcmdptr_t parm)
 
     if (!g_netServer)
     {
-        LOG_F(INFO, "Only the server can ban players.");
+        initprintf("You are not the server.\n");
         return OSDCMD_OK;
     }
 
@@ -1326,14 +1310,15 @@ static int osdcmd_kickban(osdcmdptr_t parm)
             char ipaddr[32];
 
             enet_address_get_host_ip(&currentPeer->address, ipaddr, sizeof(ipaddr));
-            LOG_F(LOG_NET, "Host %s is now banned.", ipaddr);
-            VLOG_F(LOG_NET, "Kicking %s (%x)", g_player[(intptr_t)currentPeer->data].user_name, currentPeer->address.host);
+            initprintf("Host %s is now banned.\n", ipaddr);
+            initprintf("Kicking %x (%s)\n", currentPeer->address.host,
+                       g_player[(intptr_t)currentPeer->data].user_name);
             enet_peer_disconnect(currentPeer, DISC_BANNED);
             return OSDCMD_OK;
         }
     }
 
-    LOG_F(INFO, "Player %s not found.", parm->parms[0]);
+    initprintf("Player %s not found!\n", parm->parms[0]);
     osdcmd_listplayers(NULL);
 
     return OSDCMD_OK;
@@ -1373,7 +1358,7 @@ static int osdcmd_cvar_set_game(osdcmdptr_t parm)
     {
         if (g_frameStackSize % 65536 == 0)
         {
-            LOG_F(WARNING, "Stack size specified is a multiple of 64K. Adjusting...");
+            OSD_Printf("Warning: stack size specified is a multiple of 64K. Adjusting...\n");
             g_frameStackSize = (g_frameStackSize >> 4) * 17;
         }
         g_restartFrameRoutine = 1;
@@ -1621,8 +1606,6 @@ int32_t registerosdcommands(void)
         { "cl_weaponsway", "weapon sways when moving" CVAR_BOOL_OPTSTR, (void *)&ud.weaponsway, CVAR_BOOL, 0, 1 },
         { "cl_weaponswitch", "bitmask controlling switching weapon when out of ammo or a new weapon is picked up:\n 0: disabled\n 1: if new\n 2: if empty\n 4: determined by wchoice", (void *)&ud.weaponswitch, CVAR_INT|CVAR_MULTI, 0, 7 },
 
-        { "cl_keybindorder", "default order for the keybind menu (overridden by custom order, requires a restart):\n 0: classic\n 1: modern", (void *)&kbo_type_cvar, CVAR_BOOL, 0, 1 },
-
         { "color", "player palette", (void *)&ud.color, CVAR_INT|CVAR_MULTI, 0, MAXPALOOKUPS-1 },
 
         { "crosshairscale","crosshair size", (void *)&ud.crosshairscale, CVAR_INT, 10, 100 },
@@ -1689,10 +1672,7 @@ int32_t registerosdcommands(void)
         },
 
         { "in_mouseflip", "invert vertical mouse movement" CVAR_BOOL_OPTSTR, (void *)&ud.mouseflip, CVAR_BOOL, 0, 1 },
-/*
-        { "in_rumble", "controller rumble factor", (void*)&ud.rumble, CVAR_INT, 0, 4 },
-*/
-        { "in_rumble", "game controller rumble support" CVAR_BOOL_OPTSTR, (void*)&ud.config.controllerRumble, CVAR_BOOL, 0, 1 },
+
         { "mus_enabled", "music subsystem" CVAR_BOOL_OPTSTR, (void *)&ud.config.MusicToggle, CVAR_BOOL|CVAR_FUNCPTR, 0, 1 },
         { "mus_device", "music device", (void*)& ud.config.MusicDevice, CVAR_INT|CVAR_FUNCPTR, 0, ASS_NumSoundCards },
         { "mus_volume", "controls music volume", (void *)&ud.config.MusicVolume, CVAR_INT|CVAR_FUNCPTR, 0, 255 },
@@ -1713,8 +1693,6 @@ int32_t registerosdcommands(void)
 
         { "r_ambientlight", "sets the global map light level",(void *)&r_ambientlight, CVAR_FLOAT|CVAR_FUNCPTR, 0, 10 },
 
-        { "r_pr_defaultlights", "default polymer lights:\n 0: off\n 1: on",(void *)&r_pr_defaultlights, CVAR_BOOL, 0, 1 },
-
         { "skill","changes the game skill setting", (void *)&ud.m_player_skill, CVAR_INT|CVAR_FUNCPTR|CVAR_NOSAVE/*|CVAR_NOMULTI*/, 0, 5 },
 
         { "snd_ambience", "ambient sounds" CVAR_BOOL_OPTSTR, (void *)&ud.config.AmbienceToggle, CVAR_BOOL, 0, 1 },
@@ -1729,8 +1707,6 @@ int32_t registerosdcommands(void)
         { "snd_speech", "bitmask controlling player speech", (void *)&ud.config.VoiceToggle, CVAR_INT, 0, 5 },
 #ifdef FORMAT_UPGRADE_ELIGIBLE
         { "snd_tryformats", "discover and use replacement audio in .flac and .ogg formats if available" CVAR_BOOL_OPTSTR, (void *)&g_maybeUpgradeSoundFormats, CVAR_BOOL, 0, 1 },
-        { "mus_tryformats", "discover and use replacement music in .flac and .ogg formats if available (requires snd_tryformats 1)" CVAR_BOOL_OPTSTR, (void *)&g_maybeUpgradeMusic,
-          CVAR_BOOL, 0, 1 },
 #endif
         { "team", "change team in multiplayer", (void *)&ud.team, CVAR_INT|CVAR_MULTI, 0, 3 },
 
@@ -1741,7 +1717,6 @@ int32_t registerosdcommands(void)
         { "touch_sens_look_y", "touch input sensitivity for looking up/down", (void *) &droidinput.pitch_sens, CVAR_FLOAT, 1, 9 },
         { "touch_invert", "invert look up/down touch input", (void *) &droidinput.invertLook, CVAR_BOOL, 0, 1 },
 #endif
-        { "vm_preempt", "drawing preempts CON VM" CVAR_BOOL_OPTSTR, (void *)&g_vm_preempt, CVAR_BOOL|CVAR_NOSAVE, 0, 1 },
         { "wchoice","weapon priority for automatically switching on empty or pickup", (void *)ud.wchoice, CVAR_STRING|CVAR_FUNCPTR, 0, MAX_WEAPONS },
     };
 

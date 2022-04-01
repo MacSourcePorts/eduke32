@@ -4,9 +4,6 @@
 #ifndef print_h_
 #define print_h_
 
-
-#define BUILDPRINTBUFSIZ 1024
-
 #ifdef HAVE_CXX11_HEADERS
 
 template <typename T>
@@ -50,14 +47,13 @@ static FORCE_INLINE constexpr HEXwrap<T> HEX(T x)
     return HEXwrap<T>{x};
 }
 
-//FORCE_INLINE constexpr size_t buildprintpiece(void)
-//{
-//    debug_break();
-//    return 0;
-//}
+FORCE_INLINE constexpr size_t buildprintpiece(void)
+{
+    return 0;
+}
 
 template<typename T>
-enable_if_t<is_integral<T>::value, size_t> buildprintpiece(char * const buf, T x)
+enable_if_t<is_integral<T>::value, size_t> buildprintpiece(T x)
 {
     // log_10(2^x) = x * log(2)/log(10) ~= x * 0.30103
     size_t constexpr numdigits = (sizeof(T) * CHAR_BIT + 1) / 3;
@@ -94,14 +90,15 @@ enable_if_t<is_integral<T>::value, size_t> buildprintpiece(char * const buf, T x
         while (--numChars);
     }
 
-    Bstrcat(buf, str);
+    initputs(str);
     return totalChars;
 }
 
 template<typename T>
-enable_if_t<is_integral<T>::value, size_t> buildprintpiece(char * const buf, binwrap<T> const x)
+enable_if_t<is_integral<T>::value, size_t> buildprintpiece(binwrap<T> x)
 {
     make_unsigned_t<T> const data = x.data;
+
     int constexpr numChars = sizeof(x)*CHAR_BIT;
     char str[numChars+1];
     str[numChars] = '\0';
@@ -109,14 +106,15 @@ enable_if_t<is_integral<T>::value, size_t> buildprintpiece(char * const buf, bin
     for (int p = 0; p < numChars; ++p)
         str[numChars - 1 - p] = '0' + (char)((data >> p) & 1);
 
-    Bstrcat(buf, str);
+    initputs(str);
     return numChars;
 }
 
 template<typename T>
-enable_if_t<is_integral<T>::value, size_t> buildprintpiece(char * const buf, octwrap<T> const x)
+enable_if_t<is_integral<T>::value, size_t> buildprintpiece(octwrap<T> x)
 {
     make_unsigned_t<T> const data = x.data;
+
     int constexpr numChars = (sizeof(x)*CHAR_BIT + 2) / 3;
     char str[numChars+1];
     str[numChars] = '\0';
@@ -124,15 +122,17 @@ enable_if_t<is_integral<T>::value, size_t> buildprintpiece(char * const buf, oct
     for (int p = 0; p < numChars; ++p)
         str[numChars - 1 - p] = '0' + (char)((data >> (p*3)) & 7);
 
-    Bstrcat(buf, str);
+    initputs(str);
     return numChars;
 }
 
 template<typename T>
-enable_if_t<is_integral<T>::value, size_t> buildprintpiece(char * const buf, hexwrap<T> const x)
+enable_if_t<is_integral<T>::value, size_t> buildprintpiece(hexwrap<T> x)
 {
-    static constexpr char const hexletters[] = "0123456789abcdef";
+    static char const hexletters[] = "0123456789abcdef";
+
     make_unsigned_t<T> const data = x.data;
+
     int constexpr numChars = (sizeof(x)*CHAR_BIT + 3) >> 2;
     char str[numChars+1];
     str[numChars] = '\0';
@@ -140,65 +140,51 @@ enable_if_t<is_integral<T>::value, size_t> buildprintpiece(char * const buf, hex
     for (int p = 0; p < numChars; ++p)
         str[numChars - 1 - p] = hexletters[(int)((data >> (p<<2)) & 0xF)];
 
-    Bstrcat(buf, str);
+    initputs(str);
     return numChars;
 }
 
 template<typename T>
-enable_if_t<is_integral<T>::value, size_t> buildprintpiece(char * const buf, HEXwrap<T> const x)
+enable_if_t<is_integral<T>::value, size_t> buildprintpiece(HEXwrap<T> x)
 {
-    static constexpr char const HEXletters[] = "0123456789ABCDEF";
+    static char const HEXletters[] = "0123456789ABCDEF";
+
     make_unsigned_t<T> const data = x.data;
+
     int constexpr numChars = (sizeof(x)*CHAR_BIT + 3) >> 2;
     char str[numChars+1];
     str[numChars] = '\0';
 
     for (int p = 0; p < numChars; ++p)
         str[numChars - 1 - p] = HEXletters[(int)((data >> (p<<2)) & 0xF)];
-    
-    Bstrcat(buf, str);
+
+    initputs(str);
     return numChars;
 }
 
 template <typename T>
-FORCE_INLINE size_t buildprintpiece(char * const buf, const T * x)
+FORCE_INLINE size_t buildprintpiece(const T * x)
 {
-    return buildprintpiece(buf, hex((uintptr_t)x));
+    return buildprintpiece(hex((uintptr_t)x));
 }
 
-FORCE_INLINE size_t buildprintpiece(char * const buf, char const * const str)
+FORCE_INLINE size_t buildprintpiece(char const *str)
 {
-    Bstrcat(buf, str);
-    return Bstrlen(str);
+    initputs(str);
+    return strlen(str);
 }
 
 template<typename T>
-static FORCE_INLINE size_t buildprint_internal__(char * const buf, T const first)
+static FORCE_INLINE size_t buildprint(T first)
 {
-    return buildprintpiece(buf, first);
+    return buildprintpiece(first);
 }
 
 template<typename T, typename... Args>
-size_t buildprint_internal__(char * const buf, T const first, Args... args)
+size_t buildprint(T first, Args... args)
 {
-    size_t const len = buildprintpiece(buf, first);
-    return len + buildprint_internal__(buf, args...);
-}
-
-template<typename... Args>
-size_t buildprint(Args... args)
-{
-    auto const buf = (char *)Balloca(BUILDPRINTBUFSIZ+1);
-    buf[0] = 0;
-    size_t const len = buildprint_internal__(buf, args...);
-
-    g_useLogCallback = false;
-    LOG_F(INFO, buf);
-    g_useLogCallback = true;
-
-    initputs(buf);
-
-    return len;
+    size_t const len = buildprintpiece(first);
+    return len + buildprint(args...);
 }
 
 // this file is incomplete. a fuller implementation exists but has not been completed and debugged.

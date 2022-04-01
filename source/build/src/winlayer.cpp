@@ -219,6 +219,8 @@ static int32_t setgammaramp(LPDDGAMMARAMP gt);
 //
 static void SignalHandler(int32_t signum)
 {
+    OSD_FlushLog();
+
     switch (signum)
     {
     case SIGSEGV:
@@ -279,7 +281,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
     _CrtSetDbgFlag(_CRTDBG_CHECK_ALWAYS_DF);
 #endif
 
-    engineSetupAllocator();
+    engineCreateAllocator();
 
     mutex_init(&m_initprintf);
 
@@ -537,6 +539,9 @@ void uninitsystem(void)
     //POGO: there is no equivalent to unloadgldriver() with GLAD's loader, but this shouldn't be a problem.
     //unloadgldriver();
     unloadwgl();
+#ifdef POLYMER
+    unloadglulibrary();
+#endif
 #endif
 }
 
@@ -2559,6 +2564,15 @@ static int32_t SetupOpenGL(int32_t width, int32_t height, int32_t bitspp)
             nogl = 1;
             ReleaseOpenGL();
             return TRUE;
+#ifdef POLYMER
+        }
+        else if (loadglulibrary(getenv("BUILD_GLULIB")))
+        {
+            initprintf("Failure loading GLU. GL modes are unavailable.\n");
+                        nogl = 1;
+                        ReleaseOpenGL();
+                        return TRUE;
+#endif
         }
         else if (GLVersion.major < 2)
         {

@@ -247,8 +247,6 @@ memberlabel_t const ActorLabels[]=
     { "htumovflag", ACTOR_HTUMOVFLAG, sizeof(actor[0].movflag) | LABEL_UNSIGNED, 0, offsetof(actor_t, movflag) },
     LABEL(actor, tempang,     "httempang",      ACTOR_HTTEMPANG),
     LABEL(actor, stayput,     "htactorstayput", ACTOR_HTSTAYPUT),
-    LABEL(actor, floorzoffset,"htfloorzoffset", ACTOR_HTFLOORZOFFSET),
-    LABEL(actor, waterzoffset,"htwaterzoffset", ACTOR_HTWATERZOFFSET),
     LABEL(actor, dispicnum,   "htdispicnum",    ACTOR_HTDISPICNUM),
     LABEL(actor, timetosleep, "httimetosleep",  ACTOR_HTTIMETOSLEEP),
     LABEL(actor, floorz,      "htfloorz",       ACTOR_HTFLOORZ),
@@ -942,7 +940,6 @@ memberlabel_t const UserdefsLabels[]=
     { "uw_framerate",           USERDEFS_UW_FRAMERATE,           0, 0, -1 },
     { "camera_time",            USERDEFS_CAMERA_TIME,            0, 0, -1 },
     { "folfvel",                USERDEFS_FOLFVEL,                0, 0, -1 },
-    { "folsvel",                USERDEFS_FOLSVEL,                0, 0, -1 },
     { "folavel",                USERDEFS_FOLAVEL,                0, 0, -1 },
     { "folx",                   USERDEFS_FOLX,                   0, 0, -1 },
     { "foly",                   USERDEFS_FOLY,                   0, 0, -1 },
@@ -1002,6 +999,7 @@ memberlabel_t const UserdefsLabels[]=
     { "team",                   USERDEFS_TEAM,                   0, 0, -1 },
     { "viewbob",                USERDEFS_VIEWBOB,                0, 0, -1 },
     { "weaponsway",             USERDEFS_WEAPONSWAY,             0, 0, -1 },
+    { "angleinterpolation",     USERDEFS_ANGLEINTERPOLATION,     0, 0, -1 },
     { "obituaries",             USERDEFS_OBITUARIES,             0, 0, -1 },
     { "levelstats",             USERDEFS_LEVELSTATS,             0, 0, -1 },
     { "crosshairscale",         USERDEFS_CROSSHAIRSCALE,         0, 0, -1 },
@@ -1138,7 +1136,6 @@ int32_t __fastcall VM_GetUserdef(int32_t labelNum, int const lParm2)
         case USERDEFS_UW_FRAMERATE:           labelNum = ud.uw_framerate;                 break;
         case USERDEFS_CAMERA_TIME:            labelNum = ud.camera_time;                  break;
         case USERDEFS_FOLFVEL:                labelNum = ud.folfvel;                      break;
-        case USERDEFS_FOLSVEL:                labelNum = ud.folsvel;                      break;
         case USERDEFS_FOLAVEL:                labelNum = ud.folavel;                      break;
         case USERDEFS_FOLX:                   labelNum = ud.folx;                         break;
         case USERDEFS_FOLY:                   labelNum = ud.foly;                         break;
@@ -1200,6 +1197,7 @@ int32_t __fastcall VM_GetUserdef(int32_t labelNum, int const lParm2)
         case USERDEFS_TEAM:                   labelNum = ud.team;                         break;
         case USERDEFS_VIEWBOB:                labelNum = ud.viewbob;                      break;
         case USERDEFS_WEAPONSWAY:             labelNum = ud.weaponsway;                   break;
+        case USERDEFS_ANGLEINTERPOLATION:     labelNum = ud.angleinterpolation;           break;
         case USERDEFS_OBITUARIES:             labelNum = ud.obituaries;                   break;
         case USERDEFS_LEVELSTATS:             labelNum = ud.levelstats;                   break;
         case USERDEFS_CROSSHAIRSCALE:         labelNum = ud.crosshairscale;               break;
@@ -1337,7 +1335,6 @@ void __fastcall VM_SetUserdef(int const labelNum, int const lParm2, int32_t cons
         case USERDEFS_UW_FRAMERATE:                 ud.uw_framerate                  = iSet; break;
         case USERDEFS_CAMERA_TIME:                  ud.camera_time                   = iSet; break;
         case USERDEFS_FOLFVEL:                      ud.folfvel                       = iSet; break;
-        case USERDEFS_FOLSVEL:                      ud.folsvel                       = iSet; break;
         case USERDEFS_FOLAVEL:                      ud.folavel                       = iSet; break;
         case USERDEFS_FOLX:                         ud.folx                          = iSet; break;
         case USERDEFS_FOLY:                         ud.foly                          = iSet; break;
@@ -1404,6 +1401,7 @@ void __fastcall VM_SetUserdef(int const labelNum, int const lParm2, int32_t cons
         case USERDEFS_TEAM:                         ud.team                          = iSet; break;
         case USERDEFS_VIEWBOB:                      ud.viewbob                       = iSet; break;
         case USERDEFS_WEAPONSWAY:                   ud.weaponsway                    = iSet; break;
+        case USERDEFS_ANGLEINTERPOLATION:           ud.angleinterpolation            = iSet; break;
         case USERDEFS_OBITUARIES:                   ud.obituaries                    = iSet; break;
         case USERDEFS_LEVELSTATS:                   ud.levelstats                    = iSet; break;
         case USERDEFS_CROSSHAIRSCALE:               ud.crosshairscale                = iSet; break;

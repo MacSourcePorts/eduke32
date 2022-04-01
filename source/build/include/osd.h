@@ -159,7 +159,6 @@ typedef struct
 typedef struct
 {
     char const *errorfmt;
-    char const *warnfmt;
     char const *highlight;
 
     int32_t  promptshade, promptpal;
@@ -171,7 +170,6 @@ typedef struct
     uint16_t head;  // topmost visible line number
     int8_t   scrolling;
     int      errfmtlen;
-    int      warnfmtlen;
 } osddraw_t;
 
 struct AtomicLogString : AtomicSListNode<AtomicLogString>
@@ -185,6 +183,7 @@ struct AtomicLogString : AtomicSListNode<AtomicLogString>
 
 typedef struct
 {
+    buildvfs_FILE     m_fp;
     CircularQueue<char *, 1024, RF_INIT_AND_FREE> *m_lines;
     AtomicSList64<AtomicLogString> m_pending;
 
@@ -275,7 +274,7 @@ void OSD_SetFunctions(void (*drawchar)(int, int, char, int, int),
 
 // sets the parameters for presenting the text
 void OSD_SetParameters(int promptShade, int promptPal, int editShade, int editPal, int textShade, int textPal,
-                       char const *errorStr, char const *warnStr, char const *highlight, uint32_t flags);
+                       char const *errorStr, char const *highlight, uint32_t flags);
 
 // sets the scancode for the key which activates the onscreen display
 void OSD_CaptureKey(uint8_t scanCode);
@@ -312,10 +311,13 @@ void OSD_Puts(const char *putstr);
 void OSD_DispatchQueued(void);
 
 // executes a string
-void OSD_Dispatch(const char *cmd, bool silent = false);
+void OSD_Dispatch(const char *cmd);
 
-static FORCE_INLINE char const *OSD_GetErrorFmt(void) { return osd->draw.errorfmt; }
-static FORCE_INLINE char const *OSD_GetWarningFmt(void) { return osd->draw.warnfmt; }
+static FORCE_INLINE void OSD_FlushLog(void)
+{
+    if (osd->log.m_fp)
+        buildvfs_fflush(osd->log.m_fp);
+}
 
 // registers a function
 //   name = name of the function

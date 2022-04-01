@@ -61,19 +61,15 @@ bool glsurface_initialize(vec2_t bufferResolution)
     if (buffer)
         glsurface_destroy();
 
-    buildgl_resetStateAccounting();
-
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     bufferRes  = bufferResolution;
     bufferSize = bufferRes.x * bufferRes.y;
 
     buffer = Xmalloc(bufferSize);
-    
-    if (!glIsBuffer(quadVertsID))
-        glGenBuffers(1, &quadVertsID);
 
-    buildgl_bindBuffer(GL_ARRAY_BUFFER, quadVertsID);
+    glGenBuffers(1, &quadVertsID);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVertsID);
     const float quadVerts[] =
         {
             -1.0f,  1.0f, 0.0f, 0.0f, 0.0f, //top-left
@@ -91,12 +87,9 @@ bool glsurface_initialize(vec2_t bufferResolution)
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
 
-    buildgl_activeTexture(GL_TEXTURE0);
-
-    if (!glIsTexture(bufferTexID))
-        glGenTextures(1, &bufferTexID);
-
-    buildgl_bindTexture(GL_TEXTURE_2D, bufferTexID);
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &bufferTexID);
+    glBindTexture(GL_TEXTURE_2D, bufferTexID);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -147,23 +140,19 @@ bool glsurface_initialize(vec2_t bufferResolution)
              gl_FragColor = color;\n\
          }\n";
 
-    if (!glIsProgram(shaderProgramID))
-    {
-        shaderProgramID = glCreateProgram();
-
-        GLuint vertexShaderID   = compileShader(GL_VERTEX_SHADER, VERTEX_SHADER_CODE);
-        GLuint fragmentShaderID = compileShader(GL_FRAGMENT_SHADER, FRAGMENT_SHADER_CODE);
-        glAttachShader(shaderProgramID, vertexShaderID);
-        glAttachShader(shaderProgramID, fragmentShaderID);
-        glBindAttribLocation(shaderProgramID, 0, "i_vertPos");
-        glBindAttribLocation(shaderProgramID, 1, "i_texCoord");
-        glLinkProgram(shaderProgramID);
-        glDetachShader(shaderProgramID, vertexShaderID);
-        glDeleteShader(vertexShaderID);
-        glDetachShader(shaderProgramID, fragmentShaderID);
-        glDeleteShader(fragmentShaderID);
-    }
-    buildgl_useShaderProgram(shaderProgramID);
+    shaderProgramID = glCreateProgram();
+    GLuint vertexShaderID = compileShader(GL_VERTEX_SHADER, VERTEX_SHADER_CODE);
+    GLuint fragmentShaderID = compileShader(GL_FRAGMENT_SHADER, FRAGMENT_SHADER_CODE);
+    glAttachShader(shaderProgramID, vertexShaderID);
+    glAttachShader(shaderProgramID, fragmentShaderID);
+    glBindAttribLocation(shaderProgramID, 0, "i_vertPos");
+    glBindAttribLocation(shaderProgramID, 1, "i_texCoord");
+    glLinkProgram(shaderProgramID);
+    glDetachShader(shaderProgramID, vertexShaderID);
+    glDeleteShader(vertexShaderID);
+    glDetachShader(shaderProgramID, fragmentShaderID);
+    glDeleteShader(fragmentShaderID);
+    glUseProgram(shaderProgramID);
 
     texSamplerLoc = glGetUniformLocation(shaderProgramID, "s_texture");
     paletteSamplerLoc = glGetUniformLocation(shaderProgramID, "s_palette");
@@ -192,27 +181,28 @@ void glsurface_destroy()
     glDeleteTextures(1, &paletteTexID);
     paletteTexID = 0;
 
-    buildgl_useShaderProgram(0);
+    glUseProgram(0);
     glDeleteProgram(shaderProgramID);
     shaderProgramID = 0;
 }
 
 void glsurface_setPalette(void* pPalette)
 {
-    if (!buffer || !pPalette)
+    if (!buffer)
+        return;
+    if (!pPalette)
         return;
 
-    buildgl_activeTexture(GL_TEXTURE1);
-
+    glActiveTexture(GL_TEXTURE1);
     if (paletteTexID)
     {
-        buildgl_bindTexture(GL_TEXTURE_2D, paletteTexID);
+        // assume the texture is already bound to GL_TEXTURE1
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, GL_RGBA, GL_UNSIGNED_BYTE, (void*) pPalette);
     }
     else
     {
         glGenTextures(1, &paletteTexID);
-        buildgl_bindTexture(GL_TEXTURE_2D, paletteTexID);
+        glBindTexture(GL_TEXTURE_2D, paletteTexID);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -239,7 +229,7 @@ void glsurface_blitBuffer()
     if (!buffer)
         return;
 
-    buildgl_activeTexture(GL_TEXTURE0);
+    glActiveTexture(GL_TEXTURE0);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, bufferRes.x, bufferRes.y, GL_RED, GL_UNSIGNED_BYTE, (void*) buffer);
 
     glDrawArrays(GL_TRIANGLE_STRIP,
@@ -249,6 +239,6 @@ void glsurface_blitBuffer()
 
 void glsurface_refresh()
 {
-    buildgl_activeTexture(GL_TEXTURE0);
-    buildgl_bindTexture(GL_TEXTURE_2D, bufferTexID);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, bufferTexID);
 }

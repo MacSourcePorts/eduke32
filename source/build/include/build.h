@@ -1055,7 +1055,6 @@ EXTERN uint16_t h_xsize[MAXTILES], h_ysize[MAXTILES];
 EXTERN int8_t h_xoffs[MAXTILES], h_yoffs[MAXTILES];
 
 EXTERN char *globalpalwritten;
-EXTERN int16_t globalpicnum;
 
 enum {
     GLOBAL_NO_GL_TILESHADES = 1<<0,
@@ -1551,11 +1550,12 @@ int32_t polymost_drawtilescreen(int32_t tilex, int32_t tiley, int32_t wallnum, i
 void polymost_glreset(void);
 void polymost_precache(int32_t dapicnum, int32_t dapalnum, int32_t datype);
 
+typedef uint16_t polytintflags_t;
+
 enum cutsceneflags {
     CUTSCENE_FORCEFILTER = 1,
     CUTSCENE_FORCENOFILTER = 2,
     CUTSCENE_TEXTUREFILTER = 4,
-    CUTSCENE_FILTERMASK = CUTSCENE_FORCEFILTER | CUTSCENE_FORCENOFILTER | CUTSCENE_TEXTUREFILTER,
 };
 
 extern int32_t benchmarkScreenshot;
@@ -1564,6 +1564,7 @@ extern int32_t benchmarkScreenshot;
 extern int32_t glanisotropy;
 extern int32_t glusetexcompr;
 extern int32_t gltexfiltermode;
+extern int32_t r_useindexedcolortextures;
 
 enum {
     TEXFILTER_OFF = 0, // GL_NEAREST
@@ -1576,9 +1577,32 @@ extern int32_t gltexmaxsize;
 void gltexapplyprops (void);
 void texcache_invalidate(void);
 
+# ifdef USE_GLEXT
+extern int32_t r_detailmapping;
+extern int32_t r_glowmapping;
+# endif
+
+extern int32_t r_vertexarrays;
+# ifdef USE_GLEXT
+extern int32_t r_vbocount;
+# endif
+extern int32_t r_animsmoothing;
+extern int32_t r_parallaxskyclamping;
+extern int32_t r_parallaxskypanning;
+extern int32_t r_fullbrights;
+extern int32_t r_downsize;
+extern int32_t r_downsizevar;
 extern int32_t mdtims, omdtims;
 extern int32_t glrendmode;
 #endif
+
+void hicinit(void);
+void hicsetpalettetint(int32_t palnum, char r, char g, char b, char sr, char sg, char sb, polytintflags_t effect);
+// flags bitset: 1 = don't compress
+int32_t hicsetsubsttex(int32_t picnum, int32_t palnum, const char *filen, float alphacut,
+                       float xscale, float yscale, float specpower, float specfactor, char flags);
+int32_t hicsetskybox(int32_t picnum, int32_t palnum, char *faces[6], int32_t flags);
+int32_t hicclearsubst(int32_t picnum, int32_t palnum);
 
 int32_t Ptile2tile(int32_t tile, int32_t palette) ATTRIBUTE((pure));
 int32_t md_loadmodel(const char *fn);

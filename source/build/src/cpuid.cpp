@@ -14,7 +14,7 @@ cpuinfo_t cpu;
 #endif
 
 static char g_cpuVendorIDString[16];
-static char g_cpuBrandString[48];
+static char g_cpuBrandString[64];
 
 void sysReadCPUID()
 {
@@ -32,8 +32,9 @@ void sysReadCPUID()
     Bmemcpy(g_cpuVendorIDString+4, regs+3, 4);
     g_cpuVendorIDString[12] = '\0';
 
-    DVLOG_F(LOG_DEBUG, "CPUID Vendor ID: %s", g_cpuVendorIDString);
-
+#ifdef DEBUGGINGAIDS
+    initprintf("CPUID Vendor ID: %s\n", g_cpuVendorIDString);
+#endif
     cpu.vendorIDString = g_cpuVendorIDString;
 
     if (!Bstrcmp(g_cpuVendorIDString, "GenuineIntel"))
@@ -59,13 +60,21 @@ void sysReadCPUID()
         __cpuid((int *)g_cpuBrandString+8, 0x80000004);
 #else
         __cpuid(0x80000002, *(int *)&g_cpuBrandString[0], *(int *)&g_cpuBrandString[4],
-                            *(int *)&g_cpuBrandString[8], *(int *)&g_cpuBrandString[12]);
-        __cpuid(0x80000003, *(int *)&g_cpuBrandString[16], *(int *)&g_cpuBrandString[20],
-                            *(int *)&g_cpuBrandString[24], *(int *)&g_cpuBrandString[28]);
-        __cpuid(0x80000004, *(int *)&g_cpuBrandString[32], *(int *)&g_cpuBrandString[36],
-                            *(int *)&g_cpuBrandString[40], *(int *)&g_cpuBrandString[44]);
+                            *(int *)&g_cpuBrandString[8], *(int *)&g_cpuBrandString[16]);
+        __cpuid(0x80000003, *(int *)&g_cpuBrandString[20], *(int *)&g_cpuBrandString[24],
+                            *(int *)&g_cpuBrandString[28], *(int *)&g_cpuBrandString[32]);
+        __cpuid(0x80000004, *(int *)&g_cpuBrandString[36], *(int *)&g_cpuBrandString[40],
+                            *(int *)&g_cpuBrandString[44], *(int *)&g_cpuBrandString[48]);
 #endif
-        LOG_F(INFO, "CPU: %s", g_cpuBrandString);
+        for (int i=ARRAY_SIZE(g_cpuBrandString)-1;i>=0;--i)
+        {
+            if (isalnum(g_cpuBrandString[i]))
+                break;
+
+            g_cpuBrandString[i] = '\0';
+        }
+
+        initprintf("CPU: %s\n", g_cpuBrandString);
         cpu.brandString = g_cpuBrandString;
 
         if (subleaves >= 0x80000007)

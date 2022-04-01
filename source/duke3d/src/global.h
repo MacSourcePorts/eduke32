@@ -68,7 +68,6 @@ G_EXTERN actor_t actor[MAXSPRITES];
 G_EXTERN practor_t practor[MAXSPRITES];
 #endif
 // g_tile: tile-specific data THAT DOES NOT CHANGE during the course of a game
-G_EXTERN char *g_tileLabels[MAXTILES];
 G_EXTERN tiledata_t g_tile[MAXTILES];
 G_EXTERN animwalltype animwall[MAXANIMWALLS];
 G_EXTERN char *apStrings[MAXQUOTES],*apXStrings[MAXQUOTES];
@@ -88,12 +87,10 @@ G_EXTERN char typebuf[TYPEBUFSIZE];
 G_EXTERN input_t localInput;
 G_EXTERN input_t recsync[RECSYNCBUFSIZ];
 
-G_EXTERN int32_t g_activeVscrSprite[MAX_ACTIVE_VIEWSCREENS];
-G_EXTERN int32_t g_activeVscrTile[MAX_ACTIVE_VIEWSCREENS];
 G_EXTERN int32_t g_animWallCnt;
 G_EXTERN int32_t g_animateCnt;
 G_EXTERN int32_t g_cloudCnt;
-G_EXTERN int32_t g_curViewscreen; // unused, kept for savegame purposes
+G_EXTERN int32_t g_curViewscreen;
 G_EXTERN int32_t g_frameRate;
 G_EXTERN int32_t g_cyclerCnt;
 G_EXTERN int32_t g_damageCameras;
@@ -205,8 +202,6 @@ extern int32_t g_gametypeFlags[MAXGAMETYPES];
 extern int32_t g_volumeFlags[MAXVOLUMES];
 
 extern const char *s_buildDate;
-
-extern const char* g_internalFuncNameTokens[];
 #endif
 
 enum

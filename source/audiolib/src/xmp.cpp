@@ -25,7 +25,7 @@ static playbackstatus MV_GetNextXMPBlock(VoiceNode *voice)
 {
     if (voice->rawdataptr == nullptr)
     {
-        LOG_F(ERROR, "MV_GetNextXMPBlock: no XMP context!");
+        MV_Printf("MV_GetNextXMPBlock(): no XMP context!\n");
         return NoMoreData;
     }
 
@@ -117,7 +117,7 @@ int MV_PlayXMP(char *ptr, uint32_t length, int loopstart, int loopend, int pitch
     xd->ptr = ptr;
     xd->length = length;
 
-    voice->task = async::spawn([voice]() -> int
+    voice->task = async::spawn([voice]
     {    
         auto xd = (xmp_data *)voice->rawdataptr;
         auto ctx = xd->ctx;
@@ -132,17 +132,18 @@ int MV_PlayXMP(char *ptr, uint32_t length, int loopstart, int loopend, int pitch
         if (ctx == nullptr || (xmp_status = xmp_load_module_from_memory(ctx, xd->ptr, xd->length)))
         {
             if (!xmp_status)
-                LOG_F(ERROR, "MV_PlayXMP: error in xmp_create_context");
+                MV_Printf("MV_PlayXMP: xmp_create_context failed\n");
             else
             {
                 xmp_free_context(ctx);
-                LOG_F(ERROR, "MV_PlayXMP: error %i in xmp_load_module_from_memory", xmp_status);
+                MV_Printf("MV_PlayXMP: xmp_load_module_from_memory failed (%i)\n", xmp_status);
             }
 
             ALIGNED_FREE_AND_NULL(voice->rawdataptr);
             voice->rawdatasiz = 0;
+            MV_SetErrorCode(MV_InvalidFile);
             MV_PlayVoice(voice);
-            return MV_SetErrorCode(MV_InvalidFile);
+            return;
         }
 
         xmp_start_player(ctx, MV_MixRate, 0);
@@ -152,7 +153,6 @@ int MV_PlayXMP(char *ptr, uint32_t length, int loopstart, int loopend, int pitch
         voice->RateScale = divideu64((uint64_t)voice->SamplingRate * voice->PitchScale, MV_MixRate);
         voice->FixedPointBufferSize = (voice->RateScale * MV_MIXBUFFERSIZE) - voice->RateScale;
         MV_PlayVoice(voice);
-        return MV_Ok;
     }
     );
 
@@ -191,17 +191,17 @@ void MV_SetXMPInterpolation(void)
 
 #include "_multivc.h"
 
-static char const NoXMP[] = "MV_PlayXMP: libxmp-lite support not included in this binary.";
+static char const NoXMP[] = "MV_PlayXMP: libxmp-lite support not included in this binary.\n";
 
 int MV_PlayXMP(char *, uint32_t, int, int, int, int, int, int, int, fix16_t, intptr_t)
 {
-    LOG_F(ERROR, NoXMP);
+    MV_Printf(NoXMP);
     return -1;
 }
 
 int MV_PlayXMP3D(char *, uint32_t, int, int, int, int, int, fix16_t, intptr_t)
 {
-    LOG_F(ERROR, NoXMP);
+    MV_Printf(NoXMP);
     return -1;
 }
 

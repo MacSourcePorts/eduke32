@@ -80,8 +80,8 @@ int32_t g_quitDeadline = 0;
 int32_t g_cameraDistance = 0, g_cameraClock = 0;
 static int32_t g_quickExit;
 
-char boardfilename[BMAX_PATH] = {0};
-char currentboardfilename[BMAX_PATH] = {0};
+char boardfilename[BMAX_PATH] = {0}, currentboardfilename[BMAX_PATH] = {0};
+char previousboardfilename[BMAX_PATH] = {0};
 
 int32_t voting = -1;
 int32_t vote_map = -1, vote_episode = -1;
@@ -89,8 +89,6 @@ int32_t vote_map = -1, vote_episode = -1;
 int32_t g_BenchmarkMode = BENCHMARKMODE_OFF;
 
 int32_t g_Debug = 0;
-
-int32_t g_vm_preempt = 1;
 
 #ifndef EDUKE32_STANDALONE
 static const char *defaultrtsfilename[GAMECOUNT] = { "DUKE.RTS", "NAM.RTS", "NAPALM.RTS", "WW2GI.RTS" };
@@ -187,7 +185,6 @@ enum gametokens
     T_HIDDEN,
     T_USERCONTENT,
     T_LOCALIZATION,
-    T_KEYCONFIG,
 };
 
 static void gameTimerHandler(void)
@@ -205,10 +202,10 @@ void G_HandleSpecialKeys(void)
     {
         if (videoSetGameMode(!ud.setup.fullscreen, ud.setup.xdim, ud.setup.ydim, ud.setup.bpp, ud.detail))
         {
-            LOG_F(ERROR, "Failed setting video mode!");
+            OSD_Printf(OSD_ERROR "Failed setting video mode!\n");
 
             if (videoSetGameMode(ud.setup.fullscreen, ud.setup.xdim, ud.setup.ydim, ud.setup.bpp, ud.detail))
-                G_GameExit("Fatal error: unable to recover from failure setting video mode!");
+                G_GameExit("Fatal error: unable to recover from failure setting video mode!\n");
         }
         else
             ud.setup.fullscreen = !ud.setup.fullscreen;
@@ -248,7 +245,7 @@ void G_HandleSpecialKeys(void)
 void G_GameQuit(void)
 {
     if (numplayers < 2)
-        G_GameExit();
+        G_GameExit(" ");
 
     if (g_gameQuit == 0)
     {
@@ -280,7 +277,7 @@ int32_t A_CheckInventorySprite(spritetype *s)
 }
 
 
-EDUKE32_NORETURN void app_exit(int returnCode);
+void app_exit(int returnCode) ATTRIBUTE((noreturn));
 
 static int g_programExitCode = INT_MIN;
 
@@ -321,7 +318,7 @@ void app_exit(int returnCode)
 
 void G_GameExit(const char *msg)
 {
-    if (msg && *msg != 0 && g_player[myconnectindex].ps != NULL)
+    if (*msg != 0 && g_player[myconnectindex].ps != NULL)
         g_player[myconnectindex].ps->palette = BASEPAL;
 
     if (ud.recstat == 1)
@@ -334,28 +331,31 @@ void G_GameExit(const char *msg)
     if (!g_quickExit)
     {
         if (VM_OnEventWithReturn(EVENT_EXITGAMESCREEN, g_player[myconnectindex].ps->i, myconnectindex, 0) == 0 &&
-           g_mostConcurrentPlayers > 1 && g_player[myconnectindex].ps->gm & MODE_GAME && GTFLAGS(GAMETYPE_SCORESHEET) && msg == nullptr)
+           g_mostConcurrentPlayers > 1 && g_player[myconnectindex].ps->gm & MODE_GAME && GTFLAGS(GAMETYPE_SCORESHEET) && *msg == ' ')
         {
             G_BonusScreen(1);
             videoSetGameMode(ud.setup.fullscreen, ud.setup.xdim, ud.setup.ydim, ud.setup.bpp, ud.detail);
         }
 
         // shareware and TEN screens
-        if (VM_OnEventWithReturn(EVENT_EXITPROGRAMSCREEN, g_player[myconnectindex].ps->i, myconnectindex, 0) == 0 && msg == nullptr)
+        if (VM_OnEventWithReturn(EVENT_EXITPROGRAMSCREEN, g_player[myconnectindex].ps->i, myconnectindex, 0) == 0 &&
+           *msg != 0 && *(msg+1) != 'V' && *(msg+1) != 'Y')
             G_DisplayExtraScreens();
     }
 
-    if (msg != nullptr)
-        LOG_F(INFO, "%s", msg);
+    if (*msg != 0) initprintf("%s\n",msg);
 
     if (in3dmode())
         G_Shutdown();
 
-    if (msg != nullptr)
+    if (*msg != 0)
     {
-        char titlebuf[256];
-        Bsnprintf(titlebuf, sizeof(titlebuf), HEAD2 " %s", s_buildRev);
-        wm_msgbox(titlebuf, "%s", msg);
+        if (!(msg[0] == ' ' && msg[1] == 0))
+        {
+            char titlebuf[256];
+            Bsprintf(titlebuf,HEAD2 " %s",s_buildRev);
+            wm_msgbox(titlebuf, "%s", msg);
+        }
     }
 
     Bfflush(NULL);
@@ -825,7 +825,6 @@ void G_DrawRooms(int32_t playerNum, int32_t smoothRatio)
 
     G_DoInterpolations(smoothRatio);
     G_AnimateCamSprite(smoothRatio);
-    G_InterpolateLights(smoothRatio);
 
     if (ud.camerasprite >= 0)
     {
@@ -846,7 +845,8 @@ void G_DrawRooms(int32_t playerNum, int32_t smoothRatio)
         {
 #ifdef DEBUGGINGAIDS
             if (EDUKE32_PREDICT_FALSE(noDraw != 0))
-                LOG_F(ERROR, "EVENT_DISPLAYROOMSCAMERA return value must be 0 or 1, all other values are reserved.");
+                OSD_Printf(OSD_ERROR "ERROR: EVENT_DISPLAYROOMSCAMERA return value must be 0 or 1, "
+                           "other values are reserved.\n");
 #endif
 
 #ifdef LEGACY_ROR
@@ -1056,8 +1056,6 @@ void G_DrawRooms(int32_t playerNum, int32_t smoothRatio)
         {
             CAMERA(pos.z) += 256 - (((g_earthquakeTime)&1) << 9);
             CAMERA(q16ang)   += fix16_from_int((2 - ((g_earthquakeTime)&2)) << 2);
-
-            I_AddForceFeedback(g_earthquakeTime << FF_WEAPON_DMG_SCALE, g_earthquakeTime << FF_WEAPON_DMG_SCALE, g_earthquakeTime << FF_WEAPON_TIME_SCALE);
         }
 
         if (sprite[pPlayer->i].pal == 1)
@@ -1117,7 +1115,8 @@ void G_DrawRooms(int32_t playerNum, int32_t smoothRatio)
         {
 #ifdef DEBUGGINGAIDS
             if (EDUKE32_PREDICT_FALSE(noDraw != 0))
-                LOG_F(ERROR, "EVENT_DISPLAYROOMS return value must be 0 or 1, all other values are reserved.");
+                OSD_Printf(OSD_ERROR "ERROR: EVENT_DISPLAYROOMS return value must be 0 or 1, "
+                           "other values are reserved.\n");
 #endif
 
             G_HandleMirror(CAMERA(pos.x), CAMERA(pos.y), CAMERA(pos.z), CAMERA(q16ang), CAMERA(q16horiz), smoothRatio);
@@ -1256,33 +1255,34 @@ void G_DumpDebugInfo(void)
     //    buildvfs_FILE fp = buildvfs_fopen_write("condebug.log");
 
     VM_ScriptInfo(insptr, 64);
-    LOG_F(INFO, "Current gamevar values:");
+    buildprint("\nCurrent gamevar values:\n");
 
     for (i=0; i<MAX_WEAPONS; i++)
     {
         for (j=0; j<numplayers; j++)
         {
-            LOG_F(INFO, "Player %d", j);
-            buildprint(s_WEAPON, i, "_CLIP ", PWEAPON(j, i, Clip));
-            buildprint(s_WEAPON, i, "_RELOAD ", PWEAPON(j, i, Reload));
-            buildprint(s_WEAPON, i, "_FIREDELAY ", PWEAPON(j, i, FireDelay));
-            buildprint(s_WEAPON, i, "_TOTALTIME ", PWEAPON(j, i, TotalTime));
-            buildprint(s_WEAPON, i, "_HOLDDELAY ", PWEAPON(j, i, HoldDelay));
-            buildprint(s_WEAPON, i, "_FLAGS ", PWEAPON(j, i, Flags));
-            buildprint(s_WEAPON, i, "_SHOOTS ", PWEAPON(j, i, Shoots));
-            buildprint(s_WEAPON, i, "_SPAWNTIME ", PWEAPON(j, i, SpawnTime));
-            buildprint(s_WEAPON, i, "_SPAWN ", PWEAPON(j, i, Spawn));
-            buildprint(s_WEAPON, i, "_SHOTSPERBURST ", PWEAPON(j, i, ShotsPerBurst));
-            buildprint(s_WEAPON, i, "_WORKSLIKE ", PWEAPON(j, i, WorksLike));
-            buildprint(s_WEAPON, i, "_INITIALSOUND ", PWEAPON(j, i, InitialSound));
-            buildprint(s_WEAPON, i, "_FIRESOUND ", PWEAPON(j, i, FireSound));
-            buildprint(s_WEAPON, i, "_SOUND2TIME ", PWEAPON(j, i, Sound2Time));
-            buildprint(s_WEAPON, i, "_SOUND2SOUND ", PWEAPON(j, i, Sound2Sound));
-            buildprint(s_WEAPON, i, "_RELOADSOUND1 ", PWEAPON(j, i, ReloadSound1));
-            buildprint(s_WEAPON, i, "_RELOADSOUND2 ", PWEAPON(j, i, ReloadSound2));
-            buildprint(s_WEAPON, i, "_SELECTSOUND ", PWEAPON(j, i, SelectSound));
-            buildprint(s_WEAPON, i, "_FLASHCOLOR ", PWEAPON(j, i, FlashColor));
+            buildprint("Player ", j, "\n\n");
+            buildprint(s_WEAPON, i, "_CLIP ", PWEAPON(j, i, Clip), "\n");
+            buildprint(s_WEAPON, i, "_RELOAD ", PWEAPON(j, i, Reload), "\n");
+            buildprint(s_WEAPON, i, "_FIREDELAY ", PWEAPON(j, i, FireDelay), "\n");
+            buildprint(s_WEAPON, i, "_TOTALTIME ", PWEAPON(j, i, TotalTime), "\n");
+            buildprint(s_WEAPON, i, "_HOLDDELAY ", PWEAPON(j, i, HoldDelay), "\n");
+            buildprint(s_WEAPON, i, "_FLAGS ", PWEAPON(j, i, Flags), "\n");
+            buildprint(s_WEAPON, i, "_SHOOTS ", PWEAPON(j, i, Shoots), "\n");
+            buildprint(s_WEAPON, i, "_SPAWNTIME ", PWEAPON(j, i, SpawnTime), "\n");
+            buildprint(s_WEAPON, i, "_SPAWN ", PWEAPON(j, i, Spawn), "\n");
+            buildprint(s_WEAPON, i, "_SHOTSPERBURST ", PWEAPON(j, i, ShotsPerBurst), "\n");
+            buildprint(s_WEAPON, i, "_WORKSLIKE ", PWEAPON(j, i, WorksLike), "\n");
+            buildprint(s_WEAPON, i, "_INITIALSOUND ", PWEAPON(j, i, InitialSound), "\n");
+            buildprint(s_WEAPON, i, "_FIRESOUND ", PWEAPON(j, i, FireSound), "\n");
+            buildprint(s_WEAPON, i, "_SOUND2TIME ", PWEAPON(j, i, Sound2Time), "\n");
+            buildprint(s_WEAPON, i, "_SOUND2SOUND ", PWEAPON(j, i, Sound2Sound), "\n");
+            buildprint(s_WEAPON, i, "_RELOADSOUND1 ", PWEAPON(j, i, ReloadSound1), "\n");
+            buildprint(s_WEAPON, i, "_RELOADSOUND2 ", PWEAPON(j, i, ReloadSound2), "\n");
+            buildprint(s_WEAPON, i, "_SELECTSOUND ", PWEAPON(j, i, SelectSound), "\n");
+            buildprint(s_WEAPON, i, "_FLASHCOLOR ", PWEAPON(j, i, FlashColor), "\n");
         }
+        buildprint("\n");
     }
 
     for (x=0; x<MAXSTATUS; x++)
@@ -1291,7 +1291,7 @@ void G_DumpDebugInfo(void)
         while (j >= 0)
         {
             buildprint("Sprite ", j, " (", TrackerCast(sprite[j].x), ",", TrackerCast(sprite[j].y), ",", TrackerCast(sprite[j].z),
-                ") (picnum: ", TrackerCast(sprite[j].picnum), ")");
+                ") (picnum: ", TrackerCast(sprite[j].picnum), ")\n");
             for (i=0; i<g_gameVarCount; i++)
             {
                 if (aGameVars[i].flags & (GAMEVAR_PERACTOR))
@@ -1307,9 +1307,11 @@ void G_DumpDebugInfo(void)
                                 buildprint(" (system)");
                             }
                         }
+                        buildprint("\n");
                     }
                 }
             }
+            buildprint("\n");
             j = nextspritestat[j];
         }
     }
@@ -1355,7 +1357,7 @@ int32_t A_InsertSprite(int16_t whatsect,int32_t s_x,int32_t s_y,int32_t s_z,int1
     if (EDUKE32_PREDICT_FALSE((unsigned)newSprite >= MAXSPRITES))
     {
         G_DumpDebugInfo();
-        LOG_F(ERROR, "Failed spawning pic %d spr from pic %d spr %d at x:%d,y:%d,z:%d,sect:%d",
+        OSD_Printf("Failed spawning pic %d spr from pic %d spr %d at x:%d,y:%d,z:%d,sect:%d\n",
                           s_pn,s_ow < 0 ? -1 : TrackerCast(sprite[s_ow].picnum),s_ow,s_x,s_y,s_z,whatsect);
         ERRprintf("Too many sprites spawned.");
         fatal_exit("Too many sprites spawned.");
@@ -2698,7 +2700,7 @@ int A_Spawn(int spriteNum, int tileNum)
 #ifdef POLYMER
             if (pSprite->yrepeat > 32)
             {
-                G_AddGameLight(newSprite, pSprite->sectnum, { 0, 0, LIGHTZOFF(spriteNum) }, 32768, 0, 100,255+(95<<8), PR_LIGHT_PRIO_MAX_GAME);
+                G_AddGameLight(0, newSprite, ((pSprite->yrepeat*tilesiz[pSprite->picnum].y)<<1), 32768, 255+(95<<8),PR_LIGHT_PRIO_MAX_GAME);
                 practor[newSprite].lightcount = 2;
             }
             fallthrough__;
@@ -2800,7 +2802,7 @@ int A_Spawn(int spriteNum, int tileNum)
             if (EDUKE32_PREDICT_FALSE(pSprite->hitag && pSprite->picnum == WATERBUBBLEMAKER))
             {
                 // JBF 20030913: Pisses off X_Move(), eg. in bobsp2
-                LOG_F(WARNING, "WATERBUBBLEMAKER %d @ %d,%d with hitag!=0. Applying fixup.",
+                OSD_Printf(OSD_ERROR "WARNING: WATERBUBBLEMAKER %d @ %d,%d with hitag!=0. Applying fixup.\n",
                            newSprite,TrackerCast(pSprite->x),TrackerCast(pSprite->y));
                 pSprite->hitag = 0;
             }
@@ -3059,9 +3061,9 @@ int A_Spawn(int spriteNum, int tileNum)
                     // use elevator sector's ceiling as heuristic
                     T4(newSprite) = sector[sectNum].ceilingz;
 
-                    LOG_F(WARNING, "SE17 sprite %d using own sector's ceilingz to "
-                                   "determine when to warp. Sector %d adjacent to a door?",
-                                   newSprite, sectNum);
+                    OSD_Printf(OSD_ERROR "WARNING: SE17 sprite %d using own sector's ceilingz to "
+                                         "determine when to warp. Sector %d adjacent to a door?\n",
+                               newSprite, sectNum);
                 }
 
                 nextSectNum = nextsectorneighborz(sectNum, sector[sectNum].ceilingz, 1, 1);
@@ -3072,7 +3074,9 @@ int A_Spawn(int spriteNum, int tileNum)
                 {
                     // heuristic
                     T5(newSprite) = sector[sectNum].floorz;
-                    LOG_F(WARNING, "SE17 sprite %d using own sector %d's floorz.", newSprite, sectNum);
+
+                    OSD_Printf(OSD_ERROR "WARNING: SE17 sprite %d using own sector %d's floorz.\n",
+                               newSprite, sectNum);
                 }
 
                 if (numplayers < 2 && !g_netServer)
@@ -3278,7 +3282,7 @@ int A_Spawn(int spriteNum, int tileNum)
                     }
                     if (EDUKE32_PREDICT_FALSE(spriteNum == -1))
                     {
-                        LOG_F(ERROR, "Found lonely Sector Effector (lotag 0) at (%d,%d)",
+                        OSD_Printf(OSD_ERROR "Found lonely Sector Effector (lotag 0) at (%d,%d)\n",
                             TrackerCast(pSprite->x),TrackerCast(pSprite->y));
                         changespritestat(newSprite, STAT_ACTOR);
                         goto SPAWN_END;
@@ -3299,7 +3303,7 @@ int A_Spawn(int spriteNum, int tileNum)
                         tempwallptr++;
                         if (EDUKE32_PREDICT_FALSE(tempwallptr >= MAXANIMPOINTS))
                         {
-                            Bsprintf(tempbuf, "Too many moving sectors at (%d,%d).",
+                            Bsprintf(tempbuf, "Too many moving sectors at (%d,%d).\n",
                                 TrackerCast(wall[w].x), TrackerCast(wall[w].y));
                             G_GameExit(tempbuf);
                         }
@@ -3364,7 +3368,7 @@ int A_Spawn(int spriteNum, int tileNum)
 #endif
                     if (spriteNum == 0)
                     {
-                        Bsprintf(tempbuf,"Subway found no zero'd sectors with locators at (%d,%d).",
+                        Bsprintf(tempbuf,"Subway found no zero'd sectors with locators\nat (%d,%d).\n",
                             TrackerCast(pSprite->x),TrackerCast(pSprite->y));
                         G_GameExit(tempbuf);
                     }
@@ -3920,7 +3924,7 @@ void G_DoSpriteAnimations(int32_t ourx, int32_t oury, int32_t ourz, int32_t oura
                 int16_t const sqb = getangle(sprite[pSprite->owner].x - t->x, sprite[pSprite->owner].y - t->y);
 
                 if (klabs(G_GetAngleDelta(sqa,sqb)) > 512)
-                    if (ldist(&sprite[pSprite->owner],t) < ldist(&sprite[g_player[screenpeek].ps->i],&sprite[pSprite->owner]))
+                    if (ldist(&sprite[pSprite->owner],(spritetype const *)t) < ldist(&sprite[g_player[screenpeek].ps->i],&sprite[pSprite->owner]))
                         t->xrepeat = t->yrepeat = 0;
             }
             continue;
@@ -3951,21 +3955,17 @@ void G_DoSpriteAnimations(int32_t ourx, int32_t oury, int32_t ourz, int32_t oura
         case VIEWSCREEN__:
         case VIEWSCREEN2__:
         {
-            // invalid index, skip applying a tile
-            if (T2(i) < 0 || T2(i) >= MAX_ACTIVE_VIEWSCREENS)
-                break;
-
-            int const viewscrTile = g_activeVscrTile[T2(i)];
             int const viewscrShift = G_GetViewscreenSizeShift(t);
+            int const viewscrTile = TILE_VIEWSCR-viewscrShift;
 
-            if (actor[OW(i)].t_data[0] == 1)
+            if (g_curViewscreen >= 0 && actor[OW(i)].t_data[0] == 1)
             {
                 t->picnum = STATIC;
                 t->cstat |= (wrand()&12);
                 t->xrepeat += 10;
                 t->yrepeat += 9;
             }
-            else if (viewscrTile > 0 && display_mirror != 3 && waloff[viewscrTile])
+            else if (g_curViewscreen == i && display_mirror != 3 && waloff[viewscrTile])
             {
                 // this exposes a sprite sorting issue which needs to be debugged further...
 #if 0
@@ -4235,7 +4235,7 @@ PALONLY:
             if ((unsigned)scrofs_action + ACTION_PARAM_COUNT > (unsigned)g_scriptSize || apScript[scrofs_action + ACTION_PARAM_COUNT] != CON_END)
             {
                 if (scrofs_action)
-                    LOG_F(ERROR, "Sprite %d tile %d: invalid action at offset %d", i, pSprite->picnum, scrofs_action);
+                    OSD_Printf("Sprite %d tile %d: invalid action at offset %d\n", i, pSprite->picnum, scrofs_action);
 
                 goto skip;
             }
@@ -4332,7 +4332,7 @@ skip:
 #ifdef DEBUGGINGAIDS
                     // A negative actor[i].dispicnum used to mean 'no floor shadow please', but
                     // that was a bad hack since the value could propagate to sprite[].picnum.
-                    LOG_F(ERROR, "actor[%d].dispicnum = %d", i, actor[i].dispicnum);
+                    OSD_Printf(OSD_ERROR "actor[%d].dispicnum = %d\n", i, actor[i].dispicnum);
 #endif
                     actor[i].dispicnum=0;
                     continue;
@@ -5249,15 +5249,15 @@ static void parsedefinitions_game_animsounds(scriptfile *pScript, const char * b
         // frame numbers start at 1 for us
         if (frameNum <= 0)
         {
-            LOG_F(ERROR, "Frame number must be greater than zero on line %s:%d", pScript->filename,
+            initprintf("Error: frame number must be greater zero on line %s:%d\n", pScript->filename,
                        scriptfile_getlinum(pScript, pScript->ltextptr));
             break;
         }
 
         if (frameNum < lastFrameNum)
         {
-            LOG_F(ERROR, "Frame numbers must be in (not necessarily strictly)"
-                       " ascending order (line %s:%d)",
+            initprintf("Error: frame numbers must be in (not necessarily strictly)"
+                       " ascending order (line %s:%d)\n",
                        pScript->filename, scriptfile_getlinum(pScript, pScript->ltextptr));
             break;
         }
@@ -5266,7 +5266,7 @@ static void parsedefinitions_game_animsounds(scriptfile *pScript, const char * b
 
         if ((unsigned)soundNum >= MAXSOUNDS && soundNum != -1)
         {
-            LOG_F(ERROR, "Sound number #%d invalid on line %s:%d", soundNum, pScript->filename,
+            initprintf("Error: sound number #%d invalid on line %s:%d\n", soundNum, pScript->filename,
                        scriptfile_getlinum(pScript, pScript->ltextptr));
             break;
         }
@@ -5289,13 +5289,13 @@ static void parsedefinitions_game_animsounds(scriptfile *pScript, const char * b
     if (!defError)
     {
         animPtr->numsounds = numPairs;
-        // initprintf("Defined sound sequence for hi-anim '%s' with %d frame/sound pairs\n",
+        // initprintf("Defined sound sequence for hi-anim \"%s\" with %d frame/sound pairs\n",
         //           hardcoded_anim_tokens[animnum].text, numpairs);
     }
     else
     {
         DO_FREE_AND_NULL(animPtr->sounds);
-        LOG_F(ERROR, "Failed defining sound sequence for anim '%s'.", fileName);
+        initprintf("Failed defining sound sequence for anim \"%s\".\n", fileName);
     }
 }
 
@@ -5325,7 +5325,7 @@ static int newgamesubchoice_recursive(scriptfile *pScript, MenuGameplayEntry ent
 
     if ((unsigned)subChoiceID >= MAXMENUGAMEPLAYENTRIES)
     {
-        LOG_F(ERROR, "Maximum subchoices exceeded near line %s:%d",
+        initprintf("Error: Maximum subchoices exceeded near line %s:%d\n",
             pScript->filename, scriptfile_getlinum(pScript, subChoicePtr));
         pScript->textptr = subChoiceEnd+1;
         return -1;
@@ -5408,7 +5408,6 @@ static int parsedefinitions_game(scriptfile *pScript, int firstPass)
         { "globalgameflags", T_GLOBALGAMEFLAGS  },
         { "newgamechoices",  T_NEWGAMECHOICES   },
         { "localization"  ,  T_LOCALIZATION     },
-        { "keyconfig"  ,     T_KEYCONFIG        },
     };
 
     static const tokenlist soundTokens[] =
@@ -5433,10 +5432,6 @@ static int parsedefinitions_game(scriptfile *pScript, int firstPass)
         { "texturefilter", T_TEXTUREFILTER },
     };
 
-
-    for (int f = 0; f < NUMGAMEFUNCTIONS; f++)
-       scriptfile_addsymbolvalue(internal_gamefunction_names[f], f);
-
     do
     {
         token  = getatoken(pScript, tokens, ARRAY_SIZE(tokens));
@@ -5452,10 +5447,10 @@ static int parsedefinitions_game(scriptfile *pScript, int firstPass)
             if (!scriptfile_getstring(pScript,&fileName) && firstPass)
             {
                 if (initgroupfile(fileName) == -1)
-                    LOG_F(ERROR, "Could not find file '%s'.", fileName);
+                    initprintf("Could not find file \"%s\".\n", fileName);
                 else
                 {
-                    LOG_F(ERROR, "Using file '%s' as game data.", fileName);
+                    initprintf("Using file \"%s\" as game data.\n", fileName);
                     if (!g_noAutoLoad && !ud.setup.noautoload)
                         G_DoAutoload(fileName);
                 }
@@ -5498,7 +5493,7 @@ static int parsedefinitions_game(scriptfile *pScript, int firstPass)
             if (scriptfile_getsymbol(pScript, &number)) break;
 
             if (EDUKE32_PREDICT_FALSE(scriptfile_addsymbolvalue(name, number) < 0))
-                LOG_F(WARNING, "Symbol %s unable to be redefined to %d on line %s:%d",
+                initprintf("Warning: Symbol %s was NOT redefined to %d on line %s:%d\n",
                            name, number, pScript->filename, scriptfile_getlinum(pScript, pToken));
             break;
         }
@@ -5529,7 +5524,7 @@ static int parsedefinitions_game(scriptfile *pScript, int firstPass)
             {
                 if (musicID==NULL)
                 {
-                    LOG_F(ERROR, "Missing ID for music definition near line %s:%d",
+                    initprintf("Error: missing ID for music definition near line %s:%d\n",
                                pScript->filename, scriptfile_getlinum(pScript,tokenPtr));
                     break;
                 }
@@ -5538,7 +5533,7 @@ static int parsedefinitions_game(scriptfile *pScript, int firstPass)
                     break;
 
                 if (S_DefineMusic(musicID, fileName) == -1)
-                    LOG_F(ERROR, "Invalid music ID on line %s:%d", pScript->filename, scriptfile_getlinum(pScript, tokenPtr));
+                    initprintf("Error: invalid music ID on line %s:%d\n", pScript->filename, scriptfile_getlinum(pScript, tokenPtr));
             }
         }
         break;
@@ -5632,7 +5627,7 @@ static int parsedefinitions_game(scriptfile *pScript, int firstPass)
 
             if (!animPtr)
             {
-                LOG_F(ERROR, "Expected animation filename on line %s:%d",
+                initprintf("Error: expected animation filename on line %s:%d\n",
                     pScript->filename, scriptfile_getlinum(pScript, tokenPtr));
                 break;
             }
@@ -5678,7 +5673,7 @@ static int parsedefinitions_game(scriptfile *pScript, int firstPass)
             {
                 if (soundNum==-1)
                 {
-                    LOG_F(ERROR, "Missing ID for sound definition near line %s:%d", pScript->filename, scriptfile_getlinum(pScript,tokenPtr));
+                    initprintf("Error: missing ID for sound definition near line %s:%d\n", pScript->filename, scriptfile_getlinum(pScript,tokenPtr));
                     break;
                 }
 
@@ -5687,7 +5682,7 @@ static int parsedefinitions_game(scriptfile *pScript, int firstPass)
 
                 // maybe I should have just packed this into a sound_t and passed a reference...
                 if (S_DefineSound(soundNum, fileName, minpitch, maxpitch, priority, type, distance, volume) == -1)
-                    LOG_F(ERROR, "Invalid sound ID on line %s:%d", pScript->filename, scriptfile_getlinum(pScript,tokenPtr));
+                    initprintf("Error: invalid sound ID on line %s:%d\n", pScript->filename, scriptfile_getlinum(pScript,tokenPtr));
             }
         }
         break;
@@ -5719,7 +5714,7 @@ static int parsedefinitions_game(scriptfile *pScript, int firstPass)
 
                         if ((unsigned)choiceID >= MAXMENUGAMEPLAYENTRIES)
                         {
-                            LOG_F(ERROR, "Maximum choices exceeded near line %s:%d",
+                            initprintf("Error: Maximum choices exceeded near line %s:%d\n",
                                 pScript->filename, scriptfile_getlinum(pScript, choicePtr));
                             pScript->textptr = choiceEnd+1;
                             break;
@@ -5791,77 +5786,6 @@ static int parsedefinitions_game(scriptfile *pScript, int firstPass)
             break;
         }
 
-        case T_KEYCONFIG:
-        {
-            char *keyRemapEnd;
-            int32_t currSlot = 0, keyIndex;
-
-            // will require a longer bitmap if additional gamefuncs are added
-            uint64_t gamefunc_bitmap = 0ULL;
-            Bassert(NUMGAMEFUNCTIONS <= 64);
-
-            if (scriptfile_getbraces(pScript, &keyRemapEnd))
-                break;
-
-            if (firstPass)
-            {
-                pScript->textptr = keyRemapEnd+1;
-                break;
-            }
-
-            while (pScript->textptr < keyRemapEnd - 1)
-            {
-                char * mapPtr = pScript->ltextptr;
-
-                if (currSlot >= NUMGAMEFUNCTIONS)
-                {
-                    LOG_F(ERROR, "Key remap exceeds number of valid gamefunctions %d near line %s:%d",
-                                NUMGAMEFUNCTIONS, pScript->filename, scriptfile_getlinum(pScript, mapPtr));
-                    pScript->textptr = keyRemapEnd+1;
-                    break;
-                }
-
-                if (scriptfile_getsymbol(pScript, &keyIndex))
-                    continue;
-
-                if (keyIndex < 0 || keyIndex >= NUMGAMEFUNCTIONS)
-                {
-                    LOG_F(ERROR, "Invalid key index %d near line %s:%d",
-                                keyIndex, pScript->filename, scriptfile_getlinum(pScript, mapPtr));
-                    continue;
-                }
-                else if (gamefunc_bitmap & (1ULL << keyIndex))
-                {
-                    LOG_F(WARNING, "Duplicate listing of key '%s' near line %s:%d",
-                                internal_gamefunction_names[keyIndex], pScript->filename, scriptfile_getlinum(pScript, mapPtr));
-                    continue;
-                }
-
-                keybind_order_custom[currSlot] = keyIndex;
-                gamefunc_bitmap |= (1ULL << keyIndex);
-                currSlot++;
-            }
-
-            // fill up remaining slots
-            while(currSlot < NUMGAMEFUNCTIONS)
-            {
-                keybind_order_custom[currSlot] = -1;
-                currSlot++;
-            }
-
-            // undefine gamefuncs that are no longer listed
-            for(keyIndex = 0; keyIndex < NUMGAMEFUNCTIONS; keyIndex++)
-            {
-                if (!(gamefunc_bitmap & (1ULL << keyIndex)))
-                {
-                    hash_delete(&h_gamefuncs, gamefunctions[keyIndex]);
-                    gamefunctions[keyIndex][0] = '\0';
-                }
-            }
-
-            break;
-        }
-
         case T_EOF: return 0;
         default: break;
         }
@@ -5922,7 +5846,6 @@ void G_UpdateAppTitle(char const * const name /*= nullptr*/)
     }
 
     wm_setapptitle(apptitle);
-    communityapiSetRichPresence("status", name ? name : "In menu");
 }
 
 static void G_FreeHashAnim(const char * /*string*/, intptr_t key)
@@ -5932,6 +5855,8 @@ static void G_FreeHashAnim(const char * /*string*/, intptr_t key)
 
 static void G_Cleanup(void)
 {
+    ReadSaveGameHeaders(); // for culling
+
     int32_t i;
 
     for (i=(MAXLEVELS*(MAXVOLUMES+1))-1; i>=0; i--) // +1 volume for "intro", "briefing" music
@@ -5974,16 +5899,6 @@ static void G_Cleanup(void)
     for (i=0; i < MAXMENUGAMEPLAYENTRIES; i++)
         if (g_MenuGameplayEntries[i].subentries)
             newgamechoices_recursive_free(&g_MenuGameplayEntries[i]);
-
-    auto ofs = vmoffset;
-
-    while (ofs)
-    {
-        auto next = ofs->next;
-        Xfree(ofs->fn);
-        Xfree(ofs);
-        ofs = next;
-    }
 
 //    Xfree(MusicPtr);
 
@@ -6068,7 +5983,7 @@ static void G_CompileScripts(void)
 static inline void G_CheckGametype(void)
 {
     ud.m_coop = clamp(ud.m_coop, 0, g_gametypeCnt-1);
-    LOG_F(INFO, "%s",g_gametypeNames[ud.m_coop]);
+    initprintf("%s\n",g_gametypeNames[ud.m_coop]);
     if (g_gametypeFlags[ud.m_coop] & GAMETYPE_ITEMRESPAWN)
         ud.m_respawn_items = ud.m_respawn_inventory = 1;
 }
@@ -6157,7 +6072,7 @@ static void G_HandleMemErr(int32_t lineNum, const char *fileName, const char *fu
 #ifdef DEBUGGINGAIDS
     debug_break();
 #endif
-    Bsprintf(tempbuf, "Out of memory in %s:%d (%s)", fileName, lineNum, funcName);
+    Bsprintf(tempbuf, "Out of memory in %s:%d (%s)\n", fileName, lineNum, funcName);
     fatal_exit(tempbuf);
 }
 
@@ -6167,7 +6082,7 @@ static void G_FatalEngineInitError(void)
     debug_break();
 #endif
     G_Cleanup();
-    Bsprintf(tempbuf, "There was a problem initializing the engine: %s", engineerrstr);
+    Bsprintf(tempbuf, "There was a problem initializing the engine: %s\n", engineerrstr);
     ERRprintf("%s", tempbuf);
     fatal_exit(tempbuf);
 }
@@ -6215,7 +6130,7 @@ static void G_Startup(void)
     {
         if (VOLUMEONE)
         {
-            LOG_F(WARNING, "The -map option is available in the registered version only.");
+            initprintf("The -map option is available in the registered version only!\n");
             boardfilename[0] = 0;
         }
         else
@@ -6238,12 +6153,12 @@ static void G_Startup(void)
             buildvfs_kfd ii = kopen4loadfrommod(boardfilename, 0);
             if (ii != buildvfs_kfd_invalid)
             {
-                LOG_F(INFO, "Using level: '%s'.",boardfilename);
+                initprintf("Using level: \"%s\".\n",boardfilename);
                 kclose(ii);
             }
             else
             {
-                LOG_F(INFO, "Level '%s' not found.",boardfilename);
+                initprintf("Level \"%s\" not found.\n",boardfilename);
                 boardfilename[0] = 0;
             }
         }
@@ -6261,7 +6176,7 @@ static void G_Startup(void)
     Net_GetPackets();
 
     if (numplayers > 1)
-        VLOG_F(LOG_NET, "Multiplayer initialized.");
+        initprintf("Multiplayer initialized.\n");
 
     if (artLoadFiles("tiles000.art",MAXCACHE1DSIZE) < 0)
         G_GameExit("Failed loading art.");
@@ -6533,27 +6448,14 @@ void dukeCreateFrameRoutine(void)
         fatal_exit(mco_result_description(res));
 
     if (g_frameStackSize != DRAWFRAME_DEFAULT_STACK_SIZE)
-        LOG_F(INFO, "Draw routine created with %d byte stack.", g_frameStackSize);
-}
-
-static const char* dukeVerbosityCallback(loguru::Verbosity verbosity)
-{
-    switch (verbosity)
-    {
-        default: return nullptr;
-        case LOG_VM: return "VM";
-        case LOG_CON: return "CON";
-    }
+        OSD_Printf("Draw routine created with %d byte stack.\n", g_frameStackSize);
 }
 
 int app_main(int argc, char const* const* argv)
 {
-    engineSetLogFile(APPBASENAME ".log", LOG_GAME_MAX);
-    engineSetLogVerbosityCallback(dukeVerbosityCallback);
-
 #ifndef NETCODE_DISABLE
     if (enet_initialize() != 0)
-        LOG_F(ERROR, "An error occurred while initializing ENet.");
+        initputs("An error occurred while initializing ENet.\n");
 #endif
 
 #ifdef _WIN32
@@ -6588,7 +6490,9 @@ int app_main(int argc, char const* const* argv)
         OSD_SetLogFile(cwd);
         Xfree(homedir);
     }
+    else
 #endif
+    OSD_SetLogFile(APPBASENAME ".log");
 
     osdcallbacks_t callbacks = {};
 
@@ -6605,7 +6509,7 @@ int app_main(int argc, char const* const* argv)
 
     G_UpdateAppTitle();
 
-    LOG_F(INFO, HEAD2 " %s", s_buildRev);
+    initprintf(HEAD2 " %s\n", s_buildRev);
 
     PrintBuildInfo();
 
@@ -6626,7 +6530,7 @@ int app_main(int argc, char const* const* argv)
     G_ExtInit();
 
 #if defined(RENDERTYPEWIN) && defined(USE_OPENGL)
-    if (forcegl) VLOG_F(LOG_GL, "OpenGL driver blacklist disabled.");
+    if (forcegl) initprintf("GL driver blacklist disabled.\n");
 #endif
 
     // used with binds for fast function lookup
@@ -6652,13 +6556,13 @@ int app_main(int argc, char const* const* argv)
     {
         if (time(NULL) - ud.config.LastUpdateCheck > UPDATEINTERVAL)
         {
-            LOG_F(INFO, "Checking for updates...");
+            initprintf("Checking for updates...\n");
 
             ud.config.LastUpdateCheck = time(NULL);
 
             if (windowsCheckForUpdates(tempbuf))
             {
-                LOG_F(INFO, "Current version is %d",Batoi(tempbuf));
+                initprintf("Current version is %d",Batoi(tempbuf));
 
                 if (Batoi(tempbuf) > atoi(s_buildDate))
                 {
@@ -6677,12 +6581,12 @@ int app_main(int argc, char const* const* argv)
                         sinfo.lpClass = "http";
 
                         if (!ShellExecuteExA(&sinfo))
-                            LOG_F(ERROR, "ShellExecuteEx error launching browser!");
+                            initprintf("update: error launching browser!\n");
                     }
                 }
-                else LOG_F(INFO, "No updates available.");
+                else initprintf("... no updates available\n");
             }
-            else LOG_F(WARNING, "Failed to check for updates!");
+            else initprintf("update: failed to check for updates\n");
         }
     }
 #endif
@@ -6696,7 +6600,7 @@ int app_main(int argc, char const* const* argv)
         G_FatalEngineInitError();
 
     if (Bstrcmp(g_setupFileName, SETUPFILENAME))
-        LOG_F(INFO, "Using config file '%s'.",g_setupFileName);
+        initprintf("Using config file \"%s\".\n",g_setupFileName);
 
     G_ScanGroups();
 
@@ -6711,7 +6615,9 @@ int app_main(int argc, char const* const* argv)
     }
 #endif
 
+    g_logFlushWindow = 0;
     G_LoadGroups(!g_noAutoLoad && !ud.setup.noautoload);
+//    flushlogwindow = 1;
 
     if (!g_useCwd)
         G_CleanupSearchPaths();
@@ -6738,7 +6644,7 @@ int app_main(int argc, char const* const* argv)
     G_UpdateAppTitle();
 
     if (g_scriptDebug)
-        LOG_F(INFO, "CON compiler debug mode enabled (level %d).",g_scriptDebug);
+        initprintf("CON debugging activated (level %d).\n",g_scriptDebug);
 
 #ifndef NETCODE_DISABLE
     if (g_networkMode == NET_SERVER || g_networkMode == NET_DEDICATED_SERVER)
@@ -6747,8 +6653,8 @@ int app_main(int argc, char const* const* argv)
         g_netServer = enet_host_create(&address, MAXPLAYERS, CHAN_MAX, 0, 0);
 
         if (g_netServer == NULL)
-            VLOG_F(LOG_NET, "Unable to create ENet server host.");
-        else VLOG_F(LOG_NET, "Multiplayer server initialized.");
+            initprintf("An error occurred while trying to create an ENet server host.\n");
+        else initprintf("Multiplayer server initialized\n");
     }
 #endif
     numplayers = 1;
@@ -6799,7 +6705,7 @@ int app_main(int argc, char const* const* argv)
     if (!loaddefinitionsfile(defsfile))
     {
         uint32_t etime = timerGetTicks();
-        LOG_F(INFO, "Definitions file '%s' loaded in %d ms.", defsfile, etime-stime);
+        initprintf("Definitions file \"%s\" loaded in %d ms.\n", defsfile, etime-stime);
     }
     loaddefinitions_game(defsfile, FALSE);
 
@@ -6847,11 +6753,11 @@ int app_main(int argc, char const* const* argv)
 
     ud.last_level = -1;
 
-    LOG_F(INFO, "Initializing console...");
+    initprintf("Initializing OSD...\n");
 
     Bsprintf(tempbuf, HEAD2 " %s", s_buildRev);
     OSD_SetVersion(tempbuf, 10,0);
-    OSD_SetParameters(0, 0, 0, 12, 2, 12, OSD_ERROR, OSDTEXT_RED, OSDTEXT_DARKRED, gamefunctions[gamefunc_Show_Console][0] == '\0' ? OSD_PROTECTED : 0);
+    OSD_SetParameters(0, 0, 0, 12, 2, 12, OSD_ERROR, OSDTEXT_RED, gamefunctions[gamefunc_Show_Console][0] == '\0' ? OSD_PROTECTED : 0);
     registerosdcommands();
 
     if (g_networkMode != NET_DEDICATED_SERVER)
@@ -6873,7 +6779,7 @@ int app_main(int argc, char const* const* argv)
 #ifdef HAVE_CLIPSHAPE_FEATURE
     int const clipMapError = engineLoadClipMaps();
     if (clipMapError > 0)
-        LOG_F(ERROR, "Error %d loading sprite clip map!", clipMapError);
+        initprintf("There was an error loading the sprite clipping map (status %d).\n", clipMapError);
 
     for (char * m : g_clipMapFiles)
         Xfree(m);
@@ -6894,7 +6800,7 @@ int app_main(int argc, char const* const* argv)
     {
         if (videoSetGameMode(ud.setup.fullscreen, ud.setup.xdim, ud.setup.ydim, ud.setup.bpp, ud.detail) < 0)
         {
-            LOG_F(ERROR, "Failure setting video mode %dx%dx%d %s! Trying next mode...", ud.setup.xdim, ud.setup.ydim,
+            initprintf("Failure setting video mode %dx%dx%d %s! Trying next mode...\n", ud.setup.xdim, ud.setup.ydim,
                        ud.setup.bpp, ud.setup.fullscreen ? "fullscreen" : "windowed");
 
             int resIdx = 0;
@@ -6913,7 +6819,7 @@ int app_main(int argc, char const* const* argv)
 
             while (videoSetGameMode(0, validmode[resIdx].xdim, validmode[resIdx].ydim, bpp, ud.detail) < 0)
             {
-                LOG_F(ERROR, "Failure setting video mode %dx%dx%d windowed! Trying next mode...",
+                initprintf("Failure setting video mode %dx%dx%d windowed! Trying next mode...\n",
                            validmode[resIdx].xdim, validmode[resIdx].ydim, bpp);
 
                 if (++resIdx >= validmodecnt)
@@ -6984,8 +6890,10 @@ MAIN_LOOP_RESTART:
 
     if(g_netClient)
     {
-        VLOG_F(LOG_NET, "Waiting for initial snapshot...");
+        OSD_Printf("Waiting for initial snapshot...");
         Net_WaitForInitialSnapshot();
+
+
     }
 
     if (g_networkMode != NET_DEDICATED_SERVER)
@@ -7040,6 +6948,7 @@ MAIN_LOOP_RESTART:
         }
         else G_UpdateScreenArea();
     }
+//    G_GameExit(" "); ///
 
 //    ud.auto_run = ud.config.RunMode;
     ud.showweapons = ud.config.ShowWeapons;

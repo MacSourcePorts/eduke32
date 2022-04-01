@@ -5,12 +5,14 @@
  */
 
 #include "build.h"
-#include "hightile.h"
 
 #ifdef USE_OPENGL
+
 #include "compat.h"
 #include "kplib.h"
+#include "hightile.h"
 #include "baselayer.h"
+
 
 polytint_t hictinting[MAXPALOOKUPS];
 
@@ -176,15 +178,17 @@ int32_t hicsetsubsttex(int32_t picnum, int32_t palnum, const char *filen, float 
         hicreplc[picnum] = hrn;
     }
 
-    //if (tilesiz[picnum].x<=0 || tilesiz[picnum].y<=0)
-    //{
-    //    static int32_t first=1;
-    //    if (first)
-    //    {
-    //        LOG_F(WARNING, "Defined replacement for empty tile %d.", picnum);
-    //        first = 0;
-    //    }
-    //}
+    if (tilesiz[picnum].x<=0 || tilesiz[picnum].y<=0)
+    {
+        static int32_t first=1;
+        if (first)
+        {
+            initprintf("Warning: defined hightile replacement for empty tile %d.", picnum);
+            initprintf(" Maybe some tilesXXX.art are not loaded?");
+            initprintf("\n");
+            first = 0;
+        }
+    }
 
     //printf("Replacement [%d,%d]: %s\n", picnum, palnum, hicreplc[i]->filename);
 
@@ -372,7 +376,6 @@ void hictinting_applypixcolor(coltype* tcol, uint8_t pal, bool no_rb_swap)
 {
     UNREFERENCED_PARAMETER(tcol);
     UNREFERENCED_PARAMETER(pal);
-    UNREFERENCED_PARAMETER(no_rb_swap);
 }
 
 #endif

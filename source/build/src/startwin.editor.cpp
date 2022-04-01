@@ -153,7 +153,7 @@ static INT_PTR CALLBACK startup_dlgproc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
 
         // Fetch the positions (in screen coordinates) of all the windows we need to tweak
         ZeroMemory(&chrome, sizeof(chrome));
-        AdjustWindowRect(&chrome, GetWindowLongPtr(hwndDlg, GWL_STYLE), FALSE);
+        AdjustWindowRect(&chrome, GetWindowLong(hwndDlg, GWL_STYLE), FALSE);
         GetWindowRect(hwndDlg, &rdlg);
         GetWindowRect(GetDlgItem(hwndDlg, WIN_STARTWIN_TABCTL), &rtab);
         GetWindowRect(GetDlgItem(hwndDlg, WIN_STARTWIN_CANCEL), &rcancel);
@@ -316,10 +316,6 @@ static INT_PTR CALLBACK startup_dlgproc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
     return FALSE;
 }
 
-bool startwin_isopen(void)
-{
-    return !!startupdlg;
-}
 
 int32_t startwin_open(void)
 {

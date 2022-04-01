@@ -31,9 +31,6 @@ Modifications for JonoF's port by Jonathon Fowler (jf@jonof.id.au)
 
 #ifndef scriplib_private_h_
 #define scriplib_private_h_
-
-#include "compat.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif

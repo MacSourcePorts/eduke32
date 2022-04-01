@@ -24,8 +24,7 @@
  */
 
 #include "_multivc.h"
-
-#include "baselayer.h"
+#include "compat.h"
 
 #ifdef _WIN32
 #include "winbits.h"
@@ -210,7 +209,7 @@ static playbackstatus MV_GetNextVorbisBlock(VoiceNode *voice)
 
     if (!vd)
     {
-        LOG_F(ERROR, "MV_GetNextVorbisBlock: bad rawdataptr!");
+        MV_Printf("null rawdataptr\n");
         return NoMoreData;
     }
 
@@ -236,8 +235,8 @@ static playbackstatus MV_GetNextVorbisBlock(VoiceNode *voice)
 
                 if (err != 0)
                 {
-                    LOG_F(ERROR, "MV_GetNextVorbisBlock: error %d in ov_pcm_seek (LOOP_START %" PRIi64 ", LOOP_END %" PRIi64 ")",
-                              err, (ogg_int64_t)(intptr_t)voice->Loop.Start, (ogg_int64_t)(intptr_t)voice->Loop.End);
+                    MV_Printf("MV_GetNextVorbisBlock ov_pcm_seek: LOOP_START %l, LOOP_END %l, err %d\n",
+                              (ogg_int64_t)(intptr_t)voice->Loop.Start, (ogg_int64_t)(intptr_t)voice->Loop.End, err);
                 }
             }
             continue;
@@ -252,8 +251,8 @@ static playbackstatus MV_GetNextVorbisBlock(VoiceNode *voice)
 
                 if (err != 0)
                 {
-                    LOG_F(ERROR, "MV_GetNextVorbisBlock: error %d in ov_pcm_seek (LOOP_START %" PRIi64 ")",
-                              err, (ogg_int64_t)(intptr_t)voice->Loop.Start);
+                    MV_Printf("MV_GetNextVorbisBlock ov_pcm_seek: LOOP_START %l, err %d\n",
+                              (ogg_int64_t)(intptr_t)voice->Loop.Start, err);
                 }
                 else
                     continue;
@@ -265,7 +264,7 @@ static playbackstatus MV_GetNextVorbisBlock(VoiceNode *voice)
         }
         else if (bytes < 0)
         {
-            LOG_F(ERROR, "MV_GetNextVorbisBlock: error %d in ov_read", bytes);
+            MV_Printf("MV_GetNextVorbisBlock ov_read: err %d\n", bytes);
             voice->rawdataptr = nullptr;
             voice->rawdatasiz = 0;
             ov_clear(&vd->vf);
@@ -366,9 +365,9 @@ int MV_PlayVorbis(char *ptr, uint32_t length, int loopstart, int loopend, int pi
     //if (vd->task.valid() && !vd->task.ready())
     //    vd->task.wait();
 
-    voice->task = async::spawn([voice]() -> int
+    voice->task = async::spawn([voice]
     {
-#if defined _WIN32
+#if defined _WIN32 && !defined NDEBUG
         debugThreadName("MV_PlayVorbis");
 #endif
         auto vd = (vorbis_data *)voice->rawdataptr;
@@ -380,27 +379,24 @@ int MV_PlayVorbis(char *ptr, uint32_t length, int loopstart, int loopend, int pi
         {
             voice->rawdatasiz = 0;
             MV_PlayVoice(voice);
-            return MV_SetErrorCode(MV_VoiceNotFound);
+            return;
         }
 
         int status = ov_open_callbacks((void *)vd, &vd->vf, 0, 0, vorbis_callbacks);
-        vorbis_info *vi = nullptr;
+        vorbis_info *vi;
 
         if (status < 0 || ((vi = ov_info(&vd->vf, 0)) == nullptr) || vi->channels < 1 || vi->channels > 2)
         {
             if (status == 0)
-            {
                 ov_clear(&vd->vf);
-                if (vi) LOG_F(ERROR, "MV_PlayVorbis: unsupported subformat: channels = %d", vi->channels);
-                else LOG_F(ERROR, "MV_PlayVorbis: bad ov_info");
-            }
             else
-                LOG_F(ERROR, "MV_PlayVorbis: error %d in ov_open_callbacks", status);
+                MV_Printf("MV_PlayVorbis: err %d\n", status);
 
             ALIGNED_FREE_AND_NULL(voice->rawdataptr);
             voice->rawdatasiz = 0;
+            MV_SetErrorCode(MV_InvalidFile);
             MV_PlayVoice(voice);
-            return MV_SetErrorCode(MV_InvalidFile);
+            return;
         }
 
         voice->channels = vi->channels;
@@ -412,7 +408,6 @@ int MV_PlayVorbis(char *ptr, uint32_t length, int loopstart, int loopend, int pi
         MV_SetVoicePitch(voice, vi->rate, vd->lastbitstream);
         vd->lastbitstream = -1;
         MV_PlayVoice(voice);
-        return MV_Ok;
     });
     
     return voice->handle;
@@ -439,13 +434,13 @@ void MV_ReleaseVorbisVoice(VoiceNode *voice)
 
 int MV_PlayVorbis(char *, uint32_t, int, int, int, int, int, int, int, fix16_t, intptr_t)
 {
-    LOG_F(ERROR, "MV_PlayVorbis: OggVorbis support not included in this binary.");
+    MV_Printf("MV_PlayVorbis: OggVorbis support not included in this binary.\n");
     return -1;
 }
 
 int MV_PlayVorbis3D(char *, uint32_t, int, int, int, int, int, fix16_t, intptr_t)
 {
-    LOG_F(ERROR, "MV_PlayVorbis: OggVorbis support not included in this binary.");
+    MV_Printf("MV_PlayVorbis: OggVorbis support not included in this binary.\n");
     return -1;
 }
 #endif //HAVE_VORBIS

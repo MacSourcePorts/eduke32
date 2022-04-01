@@ -187,7 +187,7 @@ int32_t addsearchpath_user(const char *p, int32_t user)
 
     srch->user = user;
 
-    LOG_F(INFO, "Using directory %s", srch->path);
+    initprintf("Using %s for game data\n", srch->path);
 
     Xfree(path);
     return 0;
@@ -216,7 +216,7 @@ int32_t removesearchpath(const char *p)
     {
         if (!Bstrncmp(path, srch->path, srch->pathlen))
         {
-            DLOG_F(INFO, "Removing directory %s from search paths", path);
+//            initprintf("Removing %s from path stack\n", path);
 
             if (srch == searchpathhead)
                 searchpathhead = srch->next;
@@ -228,6 +228,7 @@ int32_t removesearchpath(const char *p)
                 {
                     if (sp->next == srch)
                     {
+//                        initprintf("matched %s\n", srch->path);
                         sp->next = srch->next;
                         break;
                     }
@@ -754,7 +755,8 @@ static int32_t kopen_internal(const char *filename, char **lastpfn, char searchf
             }
             else if (status == 1)
             {
-                LOG_F(WARNING, "filename casing: passed '%s', actual '%s'", lastslash, fnbuf+fnofs);
+                initprintf("warning: case mismatch: passed \"%s\", real \"%s\"\n",
+                           lastslash, fnbuf+fnofs);
             }
         }
 #else
@@ -850,7 +852,7 @@ int32_t kopen4load(const char *filename, char searchfirst)
         newhandle--;
         if (newhandle < 0)
         {
-            LOG_F(ERROR, "TOO MANY FILES OPEN IN FILE GROUPING SYSTEM!");
+            initprintf("TOO MANY FILES OPEN IN FILE GROUPING SYSTEM!");
             Bexit(EXIT_SUCCESS);
         }
     }

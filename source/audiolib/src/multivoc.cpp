@@ -90,6 +90,7 @@ VoiceNode  VoicePool;
 
 static int MV_MixPage;
 
+int (*MV_Printf)(const char *fmt, ...) = initprintf;
 static void (*MV_CallBackFunc)(intptr_t);
 
 char *MV_MixDestination;
@@ -109,20 +110,6 @@ static VoiceNode **MV_Handles;
 
 static bool MV_Mix(VoiceNode * const voice, int const buffer)
 {
-    if (voice->task.valid())
-    {
-        if (!voice->task.ready())
-            return true;
-
-        auto result = voice->task.get();        
-
-        if (result != MV_Ok)
-        {
-            LOG_F(ERROR, "Error playing sound 0x%08" PRIxPTR ": %s", voice->callbackval, MV_ErrorString(result));
-            return false;
-        }
-    }
-
     if (voice->length == 0 && voice->GetSound(voice) != KeepPlaying)
         return false;
 
@@ -250,8 +237,7 @@ static void MV_StopVoice(VoiceNode *voice)
 static void MV_ServiceVoc(void)
 {
     // Toggle which buffer we'll mix next
-    ++MV_MixPage;
-    MV_MixPage &= MV_NumberOfBuffers-1;
+    ++MV_MixPage &= MV_NumberOfBuffers-1;
 
     if (MV_ReverbLevel == 0)
     {
@@ -339,7 +325,7 @@ static VoiceNode *MV_GetVoice(int handle)
 {
     if (handle < MV_MINVOICEHANDLE || handle > MV_MaxVoices)
     {
-        LOG_F(WARNING, "No voice found for handle 0x%08x", handle);
+        MV_Printf("MV_GetVoice(): bad handle (%d)!\n", handle);
         return nullptr;
     }
 
@@ -662,7 +648,7 @@ int MV_GetPosition(int handle, int *position)
 #ifdef HAVE_XMP
         case FMT_XMP:    *position = MV_GetXMPPosition(voice); break;
 #endif
-        default:         *position = (int)max<intptr_t>(0, (((intptr_t)voice->NextBlock + (intptr_t)voice->position - (intptr_t)voice->rawdataptr) >> 16) * ((voice->channels * voice->bits) >> 3)); break;
+        default: break;
     }
 
     MV_EndService();

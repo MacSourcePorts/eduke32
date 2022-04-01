@@ -46,7 +46,6 @@ Things required to make savegames work:
 #include "cache1d.h"
 #include "osd.h"
 #include "renderlayer.h"
-#include "colmatch.h"
 
 #include "keys.h"
 #include "names2.h"
@@ -910,7 +909,7 @@ InitGame(int32_t argc, char const * const * argv)
         snprintf(tempbuf, ARRAY_SIZE(tempbuf), APPNAME " %s", s_buildRev);
         OSD_SetVersion(tempbuf, 10,0);
     }
-    OSD_SetParameters(0, 0, 0, 4, 2, 4, "^14", "^14", "^14", 0);
+    OSD_SetParameters(0, 0, 0, 4, 2, 4, "^14", "^14", 0);
 
     InitSetup();
 
@@ -925,7 +924,6 @@ InitGame(int32_t argc, char const * const * argv)
     //InitFX();
 
     memcpy(palette_data,palette,768);
-    paletteInitClosestColorMap((uint8_t*)&palette_data[0][0]);
     InitPalette();
     // sets numplayers, connecthead, connectpoint2, myconnectindex
 

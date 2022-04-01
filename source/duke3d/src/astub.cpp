@@ -710,10 +710,10 @@ const char *ExtGetWallCaption(int16_t wallnum)
 
     Bmemset(tempbuf,0,sizeof(tempbuf));
     
-    if (bitmap_test(editwall, wallnum))
+    if (editwall[wallnum>>3]&pow2char[wallnum&7])
     {
         Bsprintf(tempbuf,"%d", wallength(wallnum));
-        bitmap_clear(editwall, wallnum);
+        editwall[wallnum>>3] &= ~pow2char[wallnum&7];
         return tempbuf;
     }
 
@@ -1342,7 +1342,7 @@ static void ReadHelpFile(const char *name)
     helppage_t *hp;
     char skip=0;
 
-    LOG_F(INFO, "Loading %s",name);
+    initprintf("Loading \"%s\"\n",name);
 
     if ((fp=fopenfrompath(name,"rb")) == NULL)
     {
@@ -2028,7 +2028,7 @@ static void M32_MoveFX(void)
             {
                 if ((g_sounds[s->lotag].m & SF_MSFX))
                 {
-                    x = dist(&pos,s);
+                    x = dist((spritetype *)&pos,s);
                     if (x < ht && !testbit(g_ambiencePlaying, i) && FX_VoiceAvailable(g_sounds[s->lotag].pr-1))
                     {
                         char om = g_sounds[s->lotag].m;
@@ -2037,7 +2037,7 @@ static void M32_MoveFX(void)
                             for (j = headspritestat[0]; j >= 0; j = nextspritestat[j])
                             {
                                 if (s->picnum == MUSICANDSFX && j != i && sprite[j].lotag < 999 &&
-                                        testbit(g_ambiencePlaying, j) && dist(&sprite[j],&pos) > x)
+                                        testbit(g_ambiencePlaying, j) && dist(&sprite[j],(spritetype *)&pos) > x)
                                 {
                                     S_StopEnvSound(sprite[j].lotag,j);
                                     break;
@@ -2433,6 +2433,7 @@ static inline void pushDisableFog(void)
 #ifdef USE_OPENGL
     if (videoGetRenderMode() >= REND_POLYMOST)
     {
+        glPushAttrib(GL_ENABLE_BIT);
         polymost_setFogEnabled(false);
     }
 #endif
@@ -2443,6 +2444,7 @@ static inline void popDisableFog(void)
 #ifdef USE_OPENGL
     if (videoGetRenderMode() >= REND_POLYMOST)
     {
+        glPopAttrib();
     }
 #endif
 }
@@ -6844,7 +6846,7 @@ static void Keys3d(void)
             if (AIMING_AT_WALL)
             {
                 if (searchisbottom)
-                    SET_PROTECT_BITS(wall[searchbottomwall].cstat, tempcstat, ~(256 + 4096));
+                    SET_PROTECT_BITS(wall[searchbottomwall].cstat, tempcstat, ~256);
 
                 wall[searchbottomwall].picnum = temppicnum;
                 wall[searchbottomwall].shade = tempshade;
@@ -7973,7 +7975,7 @@ int32_t ExtPreSaveMap(void)
                 if (wall[j].point2 < startwall)
                     startwall = wall[j].point2;
             if (sector[i].wallptr != startwall)
-                LOG_F(WARNING, "Set sector %d's wallptr to %d (was %d)", i,
+                initprintf("Warning: set sector %d's wallptr to %d (was %d)\n", i,
                            TrackerCast(sector[i].wallptr), startwall);
             sector[i].wallptr = startwall;
         }
@@ -8063,17 +8065,10 @@ static void G_CheckCommandLine(int32_t argc, char const * const * argv)
         return;
     else
     {
-        tempbuf[0] = 0;
-
-        Bstrcpy(tempbuf, "Application parameters: ");
-
+        initprintf("Application parameters: ");
         while (i < argc)
-        {
-            Bstrcat(tempbuf, argv[i++]);
-            Bstrcat(tempbuf, " ");
-        }
-
-        LOG_F(INFO, "%s", tempbuf);
+            initprintf("%s ", argv[i++]);
+        initprintf("\n");
     }
 
     lengths = (int32_t *)Xmalloc(argc*sizeof(int32_t));
@@ -8158,7 +8153,7 @@ static void G_CheckCommandLine(int32_t argc, char const * const * argv)
                     if (sz >= 16<<10 && sz <= 1024<<10)
                     {
                         g_maxCacheSize = sz<<10;
-                        LOG_F(INFO, "Cache size: %dkB",sz);
+                        initprintf("Cache size: %dkB\n",sz);
 
                         COPYARG(i);
                         COPYARG(i+1);
@@ -8300,21 +8295,21 @@ static void G_CheckCommandLine(int32_t argc, char const * const * argv)
             }
             if (!Bstrcasecmp(c+1,"check"))
             {
-                LOG_F(INFO, "Map wall checking on save enabled");
+                initprintf("Map wall checking on save enabled\n");
                 fixmaponsave_walls = 1;
                 i++;
                 continue;
             }
             if (!Bstrcasecmp(c+1,"nocheck"))
             {
-                LOG_F(INFO, "Map wall checking on save disabled");
+                initprintf("Map wall checking on save disabled\n");
                 fixmaponsave_walls = 0;
                 i++;
                 continue;
             }
             if (!Bstrcasecmp(c+1,"noautoload"))
             {
-                LOG_F(INFO, "Autoload disabled");
+                initprintf("Autoload disabled\n");
                 NoAutoLoad = 1;
                 COPYARG(i);
                 i++;
@@ -8450,19 +8445,20 @@ int32_t ExtPreInit(int32_t argc,char const * const * argv)
     if (buildvfs_exists("m32_usecwd"))
         g_useCwd = 1;
 
-    OSD_SetVersion(AppProperName,0,2);
-    LOG_F(INFO, "Mapster32 %s", s_buildRev);
+    OSD_SetLogFile("mapster32.log");
+    OSD_SetVersion("Mapster32",0,2);
+    initprintf("Mapster32 %s\n", s_buildRev);
     PrintBuildInfo();
 
     G_CheckCommandLine(argc,argv);
 
     if (Bstrcmp(setupfilename, SETUPFILENAME))
-        LOG_F(INFO, "Using config file %s",setupfilename);
+        initprintf("Using config file \"%s\".\n",setupfilename);
 
     int dosetup = 0;
 
     if (loadsetup(setupfilename) < 0)
-        LOG_F(INFO, "Configuration file not found, using defaults."), dosetup = 1;
+        initprintf("Configuration file not found, using defaults.\n"), dosetup = 1;
 
     bpp = bppgame;
 
@@ -8499,10 +8495,7 @@ static int osdcmd_artdump(osdcmdptr_t parm)
         last = Batol(parm->parms[1]);
 
     if (first >= MAXUSERTILES || last >= MAXUSERTILES)
-    {
-        Bfclose(f);
         return OSDCMD_SHOWHELP;
-    }
 
     for (uint32_t i = last; i > first; --i)
         if (tileLoad(i))
@@ -9305,15 +9298,6 @@ static int32_t registerosdcommands(void)
 #ifdef DEBUGGINGAIDS
     OSD_RegisterFunction("disasm", "disasm [s|e] <state or event number>", osdcmd_disasm);
 #endif
-    
-    static osdcvardata_t cvars_editor[] =
-    {
-        { "cameraheight", "adjust editor camera height", (void*)&kensplayerheight, CVAR_INT, 1, 255 },
-    };
-
-    for (auto & i : cvars_editor)
-        OSD_RegisterCvar(&i, osdcmd_cvar_set);
-
     return 0;
 }
 
@@ -10129,7 +10113,7 @@ int32_t ExtInit(void)
 {
     int32_t rv = 0;
 
-    OSD_SetParameters(0, 2, 0, 0, 4, 0, OSD_ERROR, OSDTEXT_YELLOW, OSDTEXT_RED, 0);
+    OSD_SetParameters(0, 2, 0, 0, 4, 0, OSD_ERROR, OSDTEXT_RED, 0);
 
     set_memerr_handler(&M32_HandleMemErr);
 

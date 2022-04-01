@@ -1,5 +1,5 @@
 /* ----------------------------------------------------------------------------
-Copyright (c) 2018-2022, Microsoft Research, Daan Leijen
+Copyright (c) 2018-2020, Microsoft Research, Daan Leijen
 This is free software; you can redistribute it and/or modify it under the
 terms of the MIT license. A copy of the license can be found in the file
 "LICENSE" at the root of this distribution.
@@ -32,7 +32,8 @@ terms of the MIT license. A copy of the license can be found in the file
 extern "C" {
 #endif
 
-#if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
+#if defined(MAC_OS_X_VERSION_10_6) && \
+    MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6
 // only available from OSX 10.6
 extern malloc_zone_t* malloc_default_purgeable_zone(void) __attribute__((weak_import));
 #endif
@@ -42,43 +43,43 @@ extern malloc_zone_t* malloc_default_purgeable_zone(void) __attribute__((weak_im
 ------------------------------------------------------ */
 
 static size_t zone_size(malloc_zone_t* zone, const void* p) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   //if (!mi_is_in_heap_region(p)){ return 0; } // not our pointer, bail out
   return mi_usable_size(p);
 }
 
 static void* zone_malloc(malloc_zone_t* zone, size_t size) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   return mi_malloc(size);
 }
 
 static void* zone_calloc(malloc_zone_t* zone, size_t count, size_t size) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   return mi_calloc(count, size);
 }
 
 static void* zone_valloc(malloc_zone_t* zone, size_t size) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   return mi_malloc_aligned(size, _mi_os_page_size());
 }
 
 static void zone_free(malloc_zone_t* zone, void* p) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   mi_free(p);
 }
 
 static void* zone_realloc(malloc_zone_t* zone, void* p, size_t newsize) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   return mi_realloc(p, newsize);
 }
 
 static void* zone_memalign(malloc_zone_t* zone, size_t alignment, size_t size) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   return mi_malloc_aligned(size,alignment);
 }
 
 static void zone_destroy(malloc_zone_t* zone) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   // todo: ignore for now?
 }
 
@@ -99,18 +100,18 @@ static void zone_batch_free(malloc_zone_t* zone, void** ps, unsigned count) {
 }
 
 static size_t zone_pressure_relief(malloc_zone_t* zone, size_t size) {
-  MI_UNUSED(zone); MI_UNUSED(size);
+  UNUSED(zone); UNUSED(size);
   mi_collect(false);
   return 0;
 }
 
 static void zone_free_definite_size(malloc_zone_t* zone, void* p, size_t size) {
-  MI_UNUSED(size);
+  UNUSED(size);
   zone_free(zone,p);
 }
 
 static boolean_t zone_claimed_address(malloc_zone_t* zone, void* p) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   return mi_is_in_heap_region(p);
 }
 
@@ -125,43 +126,43 @@ static kern_return_t intro_enumerator(task_t task, void* p,
                             vm_range_recorder_t recorder)
 {
   // todo: enumerate all memory
-  MI_UNUSED(task); MI_UNUSED(p); MI_UNUSED(type_mask); MI_UNUSED(zone_address);
-  MI_UNUSED(reader); MI_UNUSED(recorder);
+  UNUSED(task); UNUSED(p); UNUSED(type_mask); UNUSED(zone_address);
+  UNUSED(reader); UNUSED(recorder);
   return KERN_SUCCESS;
 }
 
 static size_t intro_good_size(malloc_zone_t* zone, size_t size) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   return mi_good_size(size);
 }
 
 static boolean_t intro_check(malloc_zone_t* zone) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   return true;
 }
 
 static void intro_print(malloc_zone_t* zone, boolean_t verbose) {
-  MI_UNUSED(zone); MI_UNUSED(verbose);
+  UNUSED(zone); UNUSED(verbose);
   mi_stats_print(NULL);
 }
 
 static void intro_log(malloc_zone_t* zone, void* p) {
-  MI_UNUSED(zone); MI_UNUSED(p);
+  UNUSED(zone); UNUSED(p);
   // todo?
 }
 
 static void intro_force_lock(malloc_zone_t* zone) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   // todo?
 }
 
 static void intro_force_unlock(malloc_zone_t* zone) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   // todo?
 }
 
 static void intro_statistics(malloc_zone_t* zone, malloc_statistics_t* stats) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   // todo...
   stats->blocks_in_use = 0;
   stats->size_in_use = 0;
@@ -170,7 +171,7 @@ static void intro_statistics(malloc_zone_t* zone, malloc_statistics_t* stats) {
 }
 
 static boolean_t intro_zone_locked(malloc_zone_t* zone) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   return false;
 }
 
@@ -183,10 +184,6 @@ static boolean_t intro_zone_locked(malloc_zone_t* zone) {
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #endif
 
-#if defined(__clang__)
-#pragma clang diagnostic ignored "-Wc99-extensions"
-#endif
-
 static malloc_introspection_t mi_introspect = {
   .enumerator = &intro_enumerator,
   .good_size = &intro_good_size,
@@ -195,16 +192,14 @@ static malloc_introspection_t mi_introspect = {
   .log = &intro_log,
   .force_lock = &intro_force_lock,
   .force_unlock = &intro_force_unlock,
-#if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
+#if defined(MAC_OS_X_VERSION_10_6) && \
+    MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6
   .statistics = &intro_statistics,
   .zone_locked = &intro_zone_locked,
 #endif
 };
 
 static malloc_zone_t mi_malloc_zone = {
-  // note: even with designators, the order is important for C++ compilation
-  //.reserved1 = NULL,
-  //.reserved2 = NULL,
   .size = &zone_size,
   .malloc = &zone_malloc,
   .calloc = &zone_calloc,
@@ -216,21 +211,19 @@ static malloc_zone_t mi_malloc_zone = {
   .batch_malloc = &zone_batch_malloc,
   .batch_free = &zone_batch_free,
   .introspect = &mi_introspect,  
-#if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
-  #if defined(MAC_OS_X_VERSION_10_14) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_14)
-  .version = 10,
-  #else
-  .version = 9,
-  #endif
+#if defined(MAC_OS_X_VERSION_10_6) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6
   // switch to version 9+ on OSX 10.6 to support memalign.
   .memalign = &zone_memalign,
   .free_definite_size = &zone_free_definite_size,
   .pressure_relief = &zone_pressure_relief,
-  #if defined(MAC_OS_X_VERSION_10_14) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_14)
+  #if defined(MAC_OS_X_VERSION_10_7) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_7
   .claimed_address = &zone_claimed_address,
+  .version = 10
+  #else
+  .version = 9
   #endif
 #else
-  .version = 4,
+  .version = 4
 #endif
 };
 
@@ -268,7 +261,7 @@ mi_decl_externc void _malloc_fork_child(void);
 
 
 static malloc_zone_t* mi_malloc_create_zone(vm_size_t size, unsigned flags) {
-  MI_UNUSED(size); MI_UNUSED(flags);
+  UNUSED(size); UNUSED(flags);
   return mi_get_default_zone();
 }
 
@@ -281,12 +274,12 @@ static malloc_zone_t* mi_malloc_default_purgeable_zone(void) {
 }
 
 static void mi_malloc_destroy_zone(malloc_zone_t* zone) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   // nothing.
 }
 
 static kern_return_t mi_malloc_get_all_zones (task_t task, memory_reader_t mr, vm_address_t** addresses, unsigned* count) {
-  MI_UNUSED(task); MI_UNUSED(mr);
+  UNUSED(task); UNUSED(mr);
   if (addresses != NULL) *addresses = NULL;
   if (count != NULL) *count = 0;
   return KERN_SUCCESS;
@@ -297,11 +290,11 @@ static const char* mi_malloc_get_zone_name(malloc_zone_t* zone) {
 }
 
 static void mi_malloc_set_zone_name(malloc_zone_t* zone, const char* name) {  
-  MI_UNUSED(zone); MI_UNUSED(name);
+  UNUSED(zone); UNUSED(name);
 }
 
 static int mi_malloc_jumpstart(uintptr_t cookie) {
-  MI_UNUSED(cookie);
+  UNUSED(cookie);
   return 1; // or 0 for no error?
 }
 
@@ -316,37 +309,37 @@ static void mi__malloc_fork_child(void) {
 }
 
 static void mi_malloc_printf(const char* fmt, ...) {
-  MI_UNUSED(fmt);
+  UNUSED(fmt);
 }
 
 static bool zone_check(malloc_zone_t* zone) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
   return true;
 }
 
 static malloc_zone_t* zone_from_ptr(const void* p) {
-  MI_UNUSED(p);
+  UNUSED(p);
   return mi_get_default_zone();
 }
 
 static void zone_log(malloc_zone_t* zone, void* p) {
-  MI_UNUSED(zone); MI_UNUSED(p);
+  UNUSED(zone); UNUSED(p);
 }
 
 static void zone_print(malloc_zone_t* zone, bool b) {
-  MI_UNUSED(zone); MI_UNUSED(b);
+  UNUSED(zone); UNUSED(b);
 }
 
 static void zone_print_ptr_info(void* p) {
-  MI_UNUSED(p);
+  UNUSED(p);
 }
 
 static void zone_register(malloc_zone_t* zone) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
 }
 
 static void zone_unregister(malloc_zone_t* zone) {
-  MI_UNUSED(zone);
+  UNUSED(zone);
 }
 
 // use interposing so `DYLD_INSERT_LIBRARIES` works without `DYLD_FORCE_FLAT_NAMESPACE=1`
@@ -423,7 +416,8 @@ __attribute__((constructor))      // seems not supported by g++-11 on the M1
 static void _mi_macos_override_malloc() {
   malloc_zone_t* purgeable_zone = NULL;
 
-  #if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
+  #if defined(MAC_OS_X_VERSION_10_6) && \
+    MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6
   // force the purgeable zone to exist to avoid strange bugs
   if (malloc_default_purgeable_zone) {
     purgeable_zone = malloc_default_purgeable_zone();

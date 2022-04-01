@@ -147,8 +147,8 @@ typedef struct mi_nothrow_s { int _tag; } mi_nothrow_t;
     void* operator new(std::size_t n) noexcept(false)   MI_FORWARD1(mi_new,n)
     void* operator new[](std::size_t n) noexcept(false) MI_FORWARD1(mi_new,n)
 
-    void* operator new  (std::size_t n, const std::nothrow_t& tag) noexcept { MI_UNUSED(tag); return mi_new_nothrow(n); }
-    void* operator new[](std::size_t n, const std::nothrow_t& tag) noexcept { MI_UNUSED(tag); return mi_new_nothrow(n); }
+    void* operator new  (std::size_t n, const std::nothrow_t& tag) noexcept { UNUSED(tag); return mi_new_nothrow(n); }
+    void* operator new[](std::size_t n, const std::nothrow_t& tag) noexcept { UNUSED(tag); return mi_new_nothrow(n); }
 
     #if (__cplusplus >= 201402L || _MSC_VER >= 1916)
     void operator delete  (void* p, std::size_t n) noexcept MI_FORWARD02(mi_free_size,p,n)
@@ -187,21 +187,21 @@ typedef struct mi_nothrow_s { int _tag; } mi_nothrow_t;
   #if (MI_INTPTR_SIZE==8)
     void* _Znwm(size_t n)                             MI_FORWARD1(mi_new,n)  // new 64-bit
     void* _Znam(size_t n)                             MI_FORWARD1(mi_new,n)  // new[] 64-bit
-    void* _ZnwmRKSt9nothrow_t(size_t n, mi_nothrow_t tag) { MI_UNUSED(tag); return mi_new_nothrow(n); }
-    void* _ZnamRKSt9nothrow_t(size_t n, mi_nothrow_t tag) { MI_UNUSED(tag); return mi_new_nothrow(n); }     
+    void* _ZnwmRKSt9nothrow_t(size_t n, mi_nothrow_t tag) { UNUSED(tag); return mi_new_nothrow(n); }
+    void* _ZnamRKSt9nothrow_t(size_t n, mi_nothrow_t tag) { UNUSED(tag); return mi_new_nothrow(n); }     
     void* _ZnwmSt11align_val_t(size_t n, size_t al)   MI_FORWARD2(mi_new_aligned, n, al)
     void* _ZnamSt11align_val_t(size_t n, size_t al)   MI_FORWARD2(mi_new_aligned, n, al)
-    void* _ZnwmSt11align_val_tRKSt9nothrow_t(size_t n, size_t al, mi_nothrow_t tag) { MI_UNUSED(tag); return mi_new_aligned_nothrow(n,al); }
-    void* _ZnamSt11align_val_tRKSt9nothrow_t(size_t n, size_t al, mi_nothrow_t tag) { MI_UNUSED(tag); return mi_new_aligned_nothrow(n,al); }
+    void* _ZnwmSt11align_val_tRKSt9nothrow_t(size_t n, size_t al, mi_nothrow_t tag) { UNUSED(tag); return mi_new_aligned_nothrow(n,al); }
+    void* _ZnamSt11align_val_tRKSt9nothrow_t(size_t n, size_t al, mi_nothrow_t tag) { UNUSED(tag); return mi_new_aligned_nothrow(n,al); }
   #elif (MI_INTPTR_SIZE==4)
     void* _Znwj(size_t n)                             MI_FORWARD1(mi_new,n)  // new 64-bit
     void* _Znaj(size_t n)                             MI_FORWARD1(mi_new,n)  // new[] 64-bit
-    void* _ZnwjRKSt9nothrow_t(size_t n, mi_nothrow_t tag) { MI_UNUSED(tag); return mi_new_nothrow(n); }
-    void* _ZnajRKSt9nothrow_t(size_t n, mi_nothrow_t tag) { MI_UNUSED(tag); return mi_new_nothrow(n); }   
+    void* _ZnwjRKSt9nothrow_t(size_t n, mi_nothrow_t tag) { UNUSED(tag); return mi_new_nothrow(n); }
+    void* _ZnajRKSt9nothrow_t(size_t n, mi_nothrow_t tag) { UNUSED(tag); return mi_new_nothrow(n); }   
     void* _ZnwjSt11align_val_t(size_t n, size_t al)   MI_FORWARD2(mi_new_aligned, n, al)
     void* _ZnajSt11align_val_t(size_t n, size_t al)   MI_FORWARD2(mi_new_aligned, n, al)
-    void* _ZnwjSt11align_val_tRKSt9nothrow_t(size_t n, size_t al, mi_nothrow_t tag) { MI_UNUSED(tag); return mi_new_aligned_nothrow(n,al); }
-    void* _ZnajSt11align_val_tRKSt9nothrow_t(size_t n, size_t al, mi_nothrow_t tag) { MI_UNUSED(tag); return mi_new_aligned_nothrow(n,al); }
+    void* _ZnwjSt11align_val_tRKSt9nothrow_t(size_t n, size_t al, mi_nothrow_t tag) { UNUSED(tag); return mi_new_aligned_nothrow(n,al); }
+    void* _ZnajSt11align_val_tRKSt9nothrow_t(size_t n, size_t al, mi_nothrow_t tag) { UNUSED(tag); return mi_new_aligned_nothrow(n,al); }
   #else
     #error "define overloads for new/delete for this platform (just for performance, can be skipped)"
   #endif
@@ -231,6 +231,7 @@ extern "C" {
   size_t malloc_good_size(size_t size)     { return mi_malloc_good_size(size); }
   int    posix_memalign(void** p, size_t alignment, size_t size) { return mi_posix_memalign(p, alignment, size); }
   
+
   // `aligned_alloc` is only available when __USE_ISOC11 is defined.
   // Note: Conda has a custom glibc where `aligned_alloc` is declared `static inline` and we cannot
   // override it, but both _ISOC11_SOURCE and __USE_ISOC11 are undefined in Conda GCC7 or GCC9.
@@ -245,7 +246,6 @@ extern "C" {
 void  cfree(void* p)                                    { mi_free(p); } 
 void* pvalloc(size_t size)                              { return mi_pvalloc(size); }
 void* reallocarray(void* p, size_t count, size_t size)  { return mi_reallocarray(p, count, size); }
-int   reallocarr(void* p, size_t count, size_t size)    { return mi_reallocarr(p, count, size); }
 void* memalign(size_t alignment, size_t size)           { return mi_memalign(alignment, size); }
 void* _aligned_malloc(size_t alignment, size_t size)    { return mi_aligned_alloc(alignment, size); }
 

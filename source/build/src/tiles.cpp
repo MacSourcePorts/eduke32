@@ -206,7 +206,7 @@ void artSetupMapArt(const char *filename)
 
 void tileSetupDummy(int32_t const tile)
 {
-    bitmap_set(faketile, tile);
+    faketile[tile>>3] |= pow2char[tile&7];
     DO_FREE_AND_NULL(faketiledata[tile]);
 }
 
@@ -219,7 +219,7 @@ static void tileSetDataSafe(int32_t const tile, int32_t tsiz, char const * const
     {
         faketilesize[tile] = tsiz;
         faketiledata[tile] = (char *) Xrealloc(newtile, tsiz);
-        bitmap_set(faketile, tile);
+        faketile[tile>>3] |= pow2char[tile&7];
         tilefilenum[tile] = MAXARTFILES_TOTAL;
     }
     else
@@ -237,13 +237,13 @@ void tileSetData(int32_t const tile, int32_t tsiz, char const * const buffer)
     {
         faketilesize[tile] = tsiz;
         faketiledata[tile] = (char *) Xrealloc(faketiledata[tile], tsiz);
-        bitmap_set(faketile, tile);
+        faketile[tile>>3] |= pow2char[tile&7];
         tilefilenum[tile] = MAXARTFILES_TOTAL;
     }
     else
     {
         DO_FREE_AND_NULL(faketiledata[tile]);
-        bitmap_clear(faketile, tile);
+        faketile[tile>>3] &= ~pow2char[tile&7];
     }
 }
 
@@ -257,7 +257,7 @@ static void tileSoftDelete(int32_t const tile)
     walock[tile] = CACHE1D_FREE;
     waloff[tile] = 0;
 
-    bitmap_clear(faketile, tile);
+    faketile[tile>>3] &= ~pow2char[tile&7];
 
     Bmemset(&picanm[tile], 0, sizeof(picanm_t));
 }
@@ -314,7 +314,7 @@ int32_t artReadHeader(buildvfs_kfd const fil, char const * const fn, artheader_t
         }
         else
         {
-            LOG_F(ERROR, "Unable to load %s: bad version.", fn);
+            initprintf("loadpics: Invalid art file, %s\n", fn);
             kclose(fil);
             return 1;
         }
@@ -322,7 +322,7 @@ int32_t artReadHeader(buildvfs_kfd const fil, char const * const fn, artheader_t
 
     if (artversion != 1)
     {
-        LOG_F(ERROR, "Unable to load %s: bad version.", fn);
+        initprintf("loadpics: Invalid art file version in %s\n", fn);
         kclose(fil);
         return 1;
     }
@@ -333,9 +333,15 @@ int32_t artReadHeader(buildvfs_kfd const fil, char const * const fn, artheader_t
     kread(fil, &local->tilestart, 4); local->tilestart = B_LITTLE32(local->tilestart);
     kread(fil, &local->tileend, 4);   local->tileend   = B_LITTLE32(local->tileend);
 
-    if (EDUKE32_PREDICT_FALSE((uint32_t) local->tilestart >= MAXUSERTILES || (uint32_t) local->tileend >= MAXUSERTILES || local->tileend < local->tilestart))
+    if ((uint32_t) local->tilestart >= MAXUSERTILES || (uint32_t) local->tileend >= MAXUSERTILES)
     {
-        LOG_F(ERROR, "Unable to load %s: tile range is reversed, negative, or exceeds MAXTILES: file likely corrupt.", fn);
+        initprintf("loadpics: Invalid localtilestart or localtileend in %s\n", fn);
+        kclose(fil);
+        return 1;
+    }
+    if (local->tileend < local->tilestart)
+    {
+        initprintf("loadpics: localtileend < localtilestart in %s\n", fn);
         kclose(fil);
         return 1;
     }
@@ -350,16 +356,21 @@ int32_t artReadHeaderFromBuffer(uint8_t const * const buf, artheader_t * const l
     int const artversion = B_LITTLE32(B_UNBUF32(&buf[0]));
     if (EDUKE32_PREDICT_FALSE(artversion != 1))
     {
-        LOG_F(ERROR, "Unable to load art: bad version.");
+        initprintf("loadpics: Invalid art file version\n");
         return 1;
     }
 
     local->tilestart = B_LITTLE32(B_UNBUF32(&buf[8]));
     local->tileend   = B_LITTLE32(B_UNBUF32(&buf[12]));
 
-    if (EDUKE32_PREDICT_FALSE((unsigned) local->tilestart >= MAXUSERTILES || (unsigned) local->tileend >= MAXUSERTILES || local->tileend < local->tilestart))
+    if (EDUKE32_PREDICT_FALSE((unsigned) local->tilestart >= MAXUSERTILES || (unsigned) local->tileend >= MAXUSERTILES))
     {
-        LOG_F(ERROR, "Unable to load art: tile range is reversed, negative, or exceeds MAXTILES: data likely corrupt.");
+        initprintf("loadpics: Invalid localtilestart or localtileend\n");
+        return 1;
+    }
+    if (EDUKE32_PREDICT_FALSE(local->tileend < local->tilestart))
+    {
+        initprintf("loadpics: localtileend < localtilestart\n");
         return 1;
     }
 
@@ -513,9 +524,10 @@ static int32_t artReadIndexedFile(int32_t tilefilei)
             {
                 // Tiles having dummytile replacements or those that are
                 // cache1d-locked can't be replaced.
-                if (bitmap_test(faketile, i) || walock[i] >= CACHE1D_LOCKED)
+                if (faketile[i>>3] & pow2char[i&7] || walock[i] >= CACHE1D_LOCKED)
                 {
-                    LOG_F(WARNING, "Per-map .art file could not be loaded %s: tile %d is locked by %s.", fn, i, walock[i] >= CACHE1D_LOCKED ? "cache1d" : "dummytile");
+                    initprintf("loadpics: per-map ART file \"%s\": "
+                        "tile %d has dummytile or is locked\n", fn, i);
                     kclose(fil);
                     return -3;
                 }
@@ -555,9 +567,10 @@ static int32_t artReadIndexedFile(int32_t tilefilei)
             }
         }
 
+#ifdef DEBUGGINGAIDS
         if (permap)
-            LOG_F(INFO, "Per-map .art file %s loaded", fn);
-
+            initprintf("Read in per-map ART file \"%s\"\n", fn);
+#endif
         kclose(fil);
         return 0;
     }
@@ -677,7 +690,7 @@ void tileLoadData(int16_t tilenume, int32_t dasiz, char *buffer)
     int const tfn = tilefilenum[tilenume];
 
     // dummy tiles for highres replacements and tilefromtexture definitions
-    if (bitmap_test(faketile, tilenume))
+    if (faketile[tilenume>>3] & pow2char[tilenume&7])
     {
         if (faketiledata[tilenume] != NULL)
             LZ4_decompress_safe(faketiledata[tilenume], buffer, faketilesize[tilenume], dasiz);
@@ -698,7 +711,7 @@ void tileLoadData(int16_t tilenume, int32_t dasiz, char *buffer)
 
         if (artfil == buildvfs_kfd_invalid)
         {
-            LOG_F(ERROR, "Failed opening .art file %s!", fn);
+            initprintf("Failed opening ART file \"%s\"!\n", fn);
             engineUnInit();
             Bexit(EXIT_FAILURE);
         }

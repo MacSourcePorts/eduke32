@@ -292,7 +292,7 @@ static void G_DrawCameraText(int16_t i)
 
         for (bssize_t x=-64; x<394; x+=64)
             for (bssize_t y=0; y<200; y+=64)
-                rotatesprite_win(ksgn(x)*(klabs(x)<<16), y<<16, 65536L, 0, STATIC, 0, 0, 2+flipbits);
+                rotatesprite_win(x<<16, y<<16, 65536L, 0, STATIC, 0, 0, 2+flipbits);
     }
 }
 
@@ -1103,8 +1103,8 @@ void G_DisplayRest(int32_t smoothratio)
                 if (!ud.pause_on)
                 {
                     ud.fola += ud.folavel>>3;
-                    ud.folx += (ud.folfvel*sintable[(512-ud.fola)&2047] + ud.folsvel*sintable[(ud.fola)&2047])>>14;
-                    ud.foly += (ud.folfvel*sintable[(1024-ud.fola)&2047] + ud.folsvel*sintable[(ud.fola-512)&2047])>>14;
+                    ud.folx += (ud.folfvel*sintable[(512+2048-ud.fola)&2047])>>14;
+                    ud.foly += (ud.folfvel*sintable[(512+1024-512-ud.fola)&2047])>>14;
                 }
 #endif
                 cposx = ud.folx;
@@ -1358,7 +1358,7 @@ void G_DisplayRest(int32_t smoothratio)
         gametext_center(70, "Press F1 to Accept, F2 to Decline");
     }
 
-    if (BUTTON(gamefunc_Show_Scoreboard))
+    if (BUTTON(gamefunc_Show_DukeMatch_Scores))
         G_ShowScores();
 
     if (g_Debug)
@@ -2283,8 +2283,8 @@ const char* G_PrintBestTime(void)
 
 void G_BonusScreen(int32_t bonusonly)
 {
-    int32_t bonusscreen_tiles[5];
-    int32_t k, bonuscnt;
+    int32_t gfx_offset;
+    int32_t bonuscnt;
     int32_t clockpad = 2;
     char *lastmapname;
 
@@ -2370,15 +2370,8 @@ void G_BonusScreen(int32_t bonusonly)
 
     if (bonusonly || (g_netServer || ud.multimode > 1)) return;
 
-    bonusscreen_tiles[0] = BONUSSCREEN + ((ud.volume_number==1) ? 5 : 0);
-    for (k = 1; k < 5; ++k)
-        ud.returnvar[k-1] = bonusscreen_tiles[0] + k;
-
-    bonusscreen_tiles[0] = VM_OnEventWithReturn(EVENT_GETBONUSTILE, g_player[screenpeek].ps->i, screenpeek, bonusscreen_tiles[0]);
-    for (k = 1; k < 5; ++k)
-        bonusscreen_tiles[k] = ud.returnvar[k-1];
-
-    rotatesprite_fs(160<<16, 100<<16, 65536L, 0, bonusscreen_tiles[0], 0, 0, 2+8+64+128+BGSTRETCH);
+    gfx_offset = (ud.volume_number==1) ? 5 : 0;
+    rotatesprite_fs(160<<16, 100<<16, 65536L, 0, BONUSSCREEN+gfx_offset, 0, 0, 2+8+64+128+BGSTRETCH);
 
     if (lastmapname)
         menutext_center(20-6, lastmapname);
@@ -2407,7 +2400,7 @@ void G_BonusScreen(int32_t bonusonly)
             if (g_player[myconnectindex].ps->gm&MODE_EOL)
             {
                 videoClearScreen(0);
-                rotatesprite_fs(160<<16, 100<<16, 65536L, 0, bonusscreen_tiles[0], 0, 0, 2+8+64+128+BGSTRETCH);
+                rotatesprite_fs(160<<16, 100<<16, 65536L, 0, BONUSSCREEN+gfx_offset, 0, 0, 2+8+64+128+BGSTRETCH);
 
                 if (totalclock >= 1000000000 && totalclock < 1000000320)
                 {
@@ -2438,11 +2431,11 @@ void G_BonusScreen(int32_t bonusonly)
                     case 1:
                     case 4:
                     case 5:
-                        rotatesprite_fs(199<<16, 31<<16, 65536L, 0, bonusscreen_tiles[3], 0, 0, 2+8+16+64+128+BGSTRETCH);
+                        rotatesprite_fs(199<<16, 31<<16, 65536L, 0, BONUSSCREEN+3+gfx_offset, 0, 0, 2+8+16+64+128+BGSTRETCH);
                         break;
                     case 2:
                     case 3:
-                        rotatesprite_fs(199<<16, 31<<16, 65536L, 0, bonusscreen_tiles[4], 0, 0, 2+8+16+64+128+BGSTRETCH);
+                        rotatesprite_fs(199<<16, 31<<16, 65536L, 0, BONUSSCREEN+4+gfx_offset, 0, 0, 2+8+16+64+128+BGSTRETCH);
                         break;
                     }
                 }
@@ -2453,10 +2446,10 @@ void G_BonusScreen(int32_t bonusonly)
                     {
                     case 1:
                     case 3:
-                        rotatesprite_fs(199<<16, 31<<16, 65536L, 0, bonusscreen_tiles[1], 0, 0, 2+8+16+64+128+BGSTRETCH);
+                        rotatesprite_fs(199<<16, 31<<16, 65536L, 0, BONUSSCREEN+1+gfx_offset, 0, 0, 2+8+16+64+128+BGSTRETCH);
                         break;
                     case 2:
-                        rotatesprite_fs(199<<16, 31<<16, 65536L, 0, bonusscreen_tiles[2], 0, 0, 2+8+16+64+128+BGSTRETCH);
+                        rotatesprite_fs(199<<16, 31<<16, 65536L, 0, BONUSSCREEN+2+gfx_offset, 0, 0, 2+8+16+64+128+BGSTRETCH);
                         break;
                     }
                 }

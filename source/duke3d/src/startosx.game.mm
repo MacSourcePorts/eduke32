@@ -695,11 +695,3 @@ int startwin_run(void)
 
     return retval;
 }
-
-bool startwin_isopen(void)
-{
-    if (startwin == nil)
-        return -1;
-    else
-        return 1;
-}

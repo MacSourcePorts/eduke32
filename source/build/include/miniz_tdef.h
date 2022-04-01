@@ -1,8 +1,6 @@
 #pragma once
 #include "miniz_common.h"
 
-#ifndef MINIZ_NO_DEFLATE_APIS
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -190,5 +188,3 @@ MINIZ_EXPORT void tdefl_compressor_free(tdefl_compressor *pComp);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /*#ifndef MINIZ_NO_DEFLATE_APIS*/

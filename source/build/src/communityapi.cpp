@@ -30,55 +30,66 @@ static char const wrapper_lib[] = "libvoidwrap_steam.so";
 #ifdef VWSCREENSHOT
 static void steam_callback_screenshotrequested()
 {
-    DLOG_F(INFO, "Voidwrap: preparing screenshot for Steam.");
+#ifdef VWDEBUG
+    initprintf("Voidwrap: Preparing steam screenshot!\n");
+#endif
     videoCaptureScreen("steam0000.png", 0);
 }
 
 #if 0
 static void steam_callback_screenshotready(int32_t result)
 {
-    DLOG_F(INFO, "Voidwrap: screenshot ready: %d", result);
+#ifdef VWDEBUG
+    initprintf("Voidwrap: Steam screenshot ready! - Result: %d\n", result);
+#else
+    UNREFERENCED_PARAMETER(result);
+#endif
 }
 #endif
 #endif
 
+#ifdef VWDEBUG
 static void steam_callback_printdebug(char const * str)
 {
-    UNREFERENCED_PARAMETER(str);
-    DLOG_F(INFO, "%s: %s", wrapper_lib, str);
+    initprintf("[DEBUG](%s): %s\n", wrapper_lib, str);
 }
+#endif
+
 #endif
 
 
 void communityapiInit()
 {
 #ifdef VW_ENABLED
-    DLOG_F(INFO, "Voidwrap: found %s", wrapper_lib);
-
     wrapper_handle = Voidwrap_LoadLibrary(wrapper_lib);
-
     if (wrapper_handle == nullptr)
     {
+#ifdef VWDEBUG
 #ifdef _WIN32
-        DLOG_F(ERROR, "Voidwrap: failed loading %s.", wrapper_lib);
+        initprintf("Voidwrap: %s missing or load failed.\n", wrapper_lib);
 #else
-        DLOG_F(ERROR, "Voidwrap: failed loading %s: dlopen error: %s", wrapper_lib, dlerror());
+        initprintf("Voidwrap: %s dlopen error: %s\n", wrapper_lib, dlerror());
+#endif
 #endif
         return;
     }
+
+#ifdef VWDEBUG
+    initprintf("Voidwrap: %s found!\n", wrapper_lib);
+#endif
 
     Voidwrap_Steam_Init = (VW_BOOL)Voidwrap_GetSymbol(wrapper_handle, "Voidwrap_Steam_Init");
     Voidwrap_Steam_Shutdown = (VW_VOID)Voidwrap_GetSymbol(wrapper_handle, "Voidwrap_Steam_Shutdown");
     Voidwrap_Steam_RunCallbacks = (VW_VOID)Voidwrap_GetSymbol(wrapper_handle, "Voidwrap_Steam_RunCallbacks");
 
-    if (nullptr != (Voidwrap_Steam_SetCallback_PrintDebug = (VW_SETCALLBACK_VOID_CONSTCHARPTR)Voidwrap_GetSymbol(wrapper_handle, "Voidwrap_Steam_SetCallback_PrintDebug")))
-        Voidwrap_Steam_SetCallback_PrintDebug(steam_callback_printdebug);
+#ifdef VWDEBUG
+    Voidwrap_Steam_SetCallback_PrintDebug = (VW_SETCALLBACK_VOID_CONSTCHARPTR)Voidwrap_GetSymbol(wrapper_handle, "Voidwrap_Steam_SetCallback_PrintDebug");
+    Voidwrap_Steam_SetCallback_PrintDebug(steam_callback_printdebug);
+#endif
 
     Voidwrap_Steam_UnlockAchievement = (VW_VOID_CONSTCHARPTR)Voidwrap_GetSymbol(wrapper_handle, "Voidwrap_Steam_UnlockAchievement");
     Voidwrap_Steam_SetStat = (VW_VOID_CONSTCHARPTR_INT32)Voidwrap_GetSymbol(wrapper_handle, "Voidwrap_Steam_SetStat");
     Voidwrap_Steam_ResetStats = (VW_VOID)Voidwrap_GetSymbol(wrapper_handle, "Voidwrap_Steam_ResetStats");
-    Voidwrap_Steam_SetRichPresence = (VW_VOID_CONSTCHARPTR_CONSTCHARPTR)Voidwrap_GetSymbol(wrapper_handle, "Voidwrap_Steam_SetRichPresence");
-    Voidwrap_Steam_ClearRichPresence = (VW_VOID)Voidwrap_GetSymbol(wrapper_handle, "Voidwrap_Steam_ClearRichPresence");
 #ifdef VWSCREENSHOT
     Voidwrap_Steam_SendScreenshot = (VW_BOOL_SCREENSHOT)Voidwrap_GetSymbol(wrapper_handle, "Voidwrap_Steam_SendScreenshot");
     Voidwrap_Steam_SetCallback_ScreenshotRequested = (VW_SETCALLBACK_VOID)Voidwrap_GetSymbol(wrapper_handle, "Voidwrap_Steam_SetCallback_ScreenshotRequested");
@@ -91,17 +102,23 @@ void communityapiInit()
 
     if (Voidwrap_Steam_Init == nullptr || Voidwrap_Steam_RunCallbacks == nullptr)
     {
-        DLOG_F(ERROR, "Voidwrap: fatal error: required symbols are missing.");
+#ifdef VWDEBUG
+        initprintf("Voidwrap: getproc_ failure.\n");
+#endif
         return;
     }
-    else if (!Voidwrap_Steam_Init())
+
+    if (!Voidwrap_Steam_Init())
     {
-        DLOG_F(WARNING, "Voidwrap: Steamworks initialization failed.");
+#ifdef VWDEBUG
+        initprintf("Voidwrap: Steamworks init failure.\n");
+#endif
         return;
     }
 
-    DLOG_F(INFO, "Voidwrap: Steamworks initialized.");
-
+#ifdef VWDEBUG
+    initprintf("Voidwrap: Steamworks init success!\n");
+#endif
     steamworks_enabled = true;
 #endif
 }
@@ -191,34 +208,6 @@ void communityapiResetStats()
 #endif
 }
 
-void communityapiSetRichPresence(char const * key, char const * str)
-{
-#ifdef VW_ENABLED
-    if (!steamworks_enabled)
-        return;
-
-    if (nullptr == Voidwrap_Steam_SetRichPresence)
-        return;
-
-    Voidwrap_Steam_SetRichPresence(key, str);
-#else
-    UNREFERENCED_PARAMETER(str);
-#endif
-}
-
-void communityapiClearRichPresence(void)
-{
-#ifdef VW_ENABLED
-    if (!steamworks_enabled)
-        return;
-
-    if (nullptr == Voidwrap_Steam_ClearRichPresence)
-        return;
-
-    Voidwrap_Steam_ClearRichPresence();
-#endif
-}
-
 #ifdef VWSCREENSHOT
 void communityapiSendScreenshot(char * filename)
 {
@@ -230,8 +219,9 @@ void communityapiSendScreenshot(char * filename)
     buildvfs_getcwd(fullpath, sizeof(fullpath));
     Bstrcat(fullpath, "/");
     Bstrcat(fullpath, filename);
-
-    DVLOG_F(LOG_DEBUG, "Steam screenshot path: %s", fullpath);
+#ifdef VWDEBUG
+    OSD_Printf("Voidwrap: Steam screenshot full path: %s\n", fullpath);
+#endif
 
     Voidwrap_Steam_SendScreenshot(fullpath, xdim, ydim);
 #else

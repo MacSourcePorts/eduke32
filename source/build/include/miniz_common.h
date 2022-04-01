@@ -39,8 +39,7 @@ typedef int mz_bool;
 #ifdef MINIZ_NO_TIME
 typedef struct mz_dummy_time_t_tag
 {
-    mz_uint32 m_dummy1;
-    mz_uint32 m_dummy2;
+    int m_dummy;
 } mz_dummy_time_t;
 #define MZ_TIME_T mz_dummy_time_t
 #else
@@ -62,8 +61,6 @@ typedef struct mz_dummy_time_t_tag
 #define MZ_MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MZ_MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MZ_CLEAR_OBJ(obj) memset(&(obj), 0, sizeof(obj))
-#define MZ_CLEAR_ARR(obj) memset((obj), 0, sizeof(obj))
-#define MZ_CLEAR_PTR(obj) memset((obj), 0, sizeof(*obj))
 
 #if MINIZ_USE_UNALIGNED_LOADS_AND_STORES && MINIZ_LITTLE_ENDIAN
 #define MZ_READ_LE16(p) *((const mz_uint16 *)(p))
