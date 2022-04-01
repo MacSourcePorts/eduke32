@@ -682,6 +682,8 @@
 		A1C010BA27F65D3100FBA675 /* bitmap.h in Headers */ = {isa = PBXBuildFile; fileRef = A1C0108A27F65D3100FBA675 /* bitmap.h */; };
 		A1C010BD27F65D3100FBA675 /* options.c in Sources */ = {isa = PBXBuildFile; fileRef = A1C0108C27F65D3100FBA675 /* options.c */; };
 		A1C010BE27F65D3100FBA675 /* options.c in Sources */ = {isa = PBXBuildFile; fileRef = A1C0108C27F65D3100FBA675 /* options.c */; };
+		A1C010C127F7A17100FBA675 /* rev.h in Headers */ = {isa = PBXBuildFile; fileRef = A1C010C027F7A17100FBA675 /* rev.h */; };
+		A1C010C227F7A17200FBA675 /* rev.h in Headers */ = {isa = PBXBuildFile; fileRef = A1C010C027F7A17100FBA675 /* rev.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1191,6 +1193,7 @@
 		A1C0108927F65D3100FBA675 /* alloc-override-osx.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "alloc-override-osx.c"; sourceTree = "<group>"; };
 		A1C0108A27F65D3100FBA675 /* bitmap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = bitmap.h; sourceTree = "<group>"; };
 		A1C0108C27F65D3100FBA675 /* options.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = options.c; sourceTree = "<group>"; };
+		A1C010C027F7A17100FBA675 /* rev.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rev.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1481,7 +1484,6 @@
 		0008E8A019F1AC530091588D /* include */ = {
 			isa = PBXGroup;
 			children = (
-				A1C0106927F65B8D00FBA675 /* log.h */,
 				0008E8A119F1AC530091588D /* a.h */,
 				0008E9A319F1AD9B0091588D /* animvpx.h */,
 				A1C0103E27F657A200FBA675 /* atomiclist.h */,
@@ -1517,6 +1519,7 @@
 				2038AE951A8F122D0093B7B2 /* libdivide.h */,
 				A1C0103B27F6578C00FBA675 /* libtess2.h */,
 				0008E6DF19F1AAFF0091588D /* linklist.h */,
+				A1C0106927F65B8D00FBA675 /* log.h */,
 				A1C0106627F65B6600FBA675 /* loguru.hpp */,
 				0008E8B219F1AC530091588D /* lz4.h */,
 				0008E8B419F1AC530091588D /* m32script.h */,
@@ -1544,6 +1547,7 @@
 				20C6091D23BF213500672309 /* print.h */,
 				0008E8C519F1AC530091588D /* prlights.h */,
 				0008E8C719F1AC530091588D /* renderlayer.h */,
+				A1C010C027F7A17100FBA675 /* rev.h */,
 				0008E8C819F1AC530091588D /* scancodes.h */,
 				A1C0103527F6575C00FBA675 /* screenshot.h */,
 				A1C0104127F657BA00FBA675 /* screentext.h */,
@@ -2036,6 +2040,7 @@
 				20FD1D481C44E4BE00C2E553 /* colmatch.h in Headers */,
 				0008E94119F1AC540091588D /* pragmas.h in Headers */,
 				20C608F123BF207700672309 /* clockticks.hpp in Headers */,
+				A1C010C127F7A17100FBA675 /* rev.h in Headers */,
 				20C6092123BF214500672309 /* sjson.h in Headers */,
 				A1C0103C27F6578C00FBA675 /* libtess2.h in Headers */,
 				0008E94C19F1AC540091588D /* sdlappicon.h in Headers */,
@@ -2190,6 +2195,7 @@
 				20C6091723BF20F500672309 /* miniz.h in Headers */,
 				20C608EF23BF206B00672309 /* build_cpuid.h in Headers */,
 				001382C419F361B60007DA6C /* hightile.h in Headers */,
+				A1C010C227F7A17200FBA675 /* rev.h in Headers */,
 				001382C519F361B60007DA6C /* glbuild.h in Headers */,
 				A1C0103D27F6578C00FBA675 /* libtess2.h in Headers */,
 				20C6090723BF20AF00672309 /* fix16.hpp in Headers */,
@@ -3482,10 +3488,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = "";
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = NO;
 				GCC_UNROLL_LOOPS = YES;
@@ -3510,6 +3513,8 @@
 					/usr/local/include/SDL2,
 					"$(SRCROOT)/../../source/glad/include",
 					"$(SRCROOT)/../../source/libxmp-lite/include",
+					"$(SRCROOT)/../../source/build/include",
+					"$(SRCROOT)/../../source/mimalloc/include",
 				);
 				INFOPLIST_FILE = "$(SRCROOT)/bundles/Mapster32.app/Contents/Info.plist";
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
@@ -3633,6 +3638,8 @@
 					/usr/local/include/SDL2,
 					"$(SRCROOT)/../../source/glad/include",
 					"$(SRCROOT)/../../source/libxmp-lite/include",
+					"$(SRCROOT)/../../source/build/include",
+					"$(SRCROOT)/../../source/mimalloc/include",
 				);
 				INFOPLIST_FILE = "$(SRCROOT)/bundles/Mapster32.app/Contents/Info.plist";
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
