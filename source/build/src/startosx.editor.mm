@@ -30,6 +30,10 @@
 # define NSControlStateValueOff NSOffState
 #endif
 
+// testing something -tkidd
+// extern int xdimgame, ydimgame, xdim2d, ydim2d;
+int xdimgame, ydimgame, xdim2d, ydim2d;
+
 static inline NSRect NSRectChangeXY(NSRect const rect, CGFloat const x, CGFloat const y)
 {
     return NSMakeRect(x, y, rect.size.width, rect.size.height);
