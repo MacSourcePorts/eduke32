@@ -5,21 +5,10 @@
 #include "cache1d.h"
 #include "communityapi.h"
 #include "compat.h"
-#include "mimalloc.h"
 #include "osd.h"
 #include "polymost.h"
 #include "renderlayer.h"
-
-#define MINICORO_IMPL
-#define MCO_LOG initprintf
-#define MCO_ASSERT Bassert
-#define MCO_MALLOC Xmalloc
-#define MCO_FREE Xfree
-
-#include "minicoro.h"
-
-#define LIBASYNC_IMPLEMENTATION
-#include "libasync_config.h"
+#include "mimalloc.h"
 
 // video
 #ifdef _WIN32
@@ -31,8 +20,7 @@ extern "C"
 }
 #endif // _WIN32
 
-int32_t g_numdisplays = 1;
-int32_t g_displayindex;
+int32_t g_borderless=2;
 
 // input
 char    inputdevices = 0;
@@ -67,7 +55,7 @@ int initprintf(const char *f, ...)
         va_start(va, f);
         len = Bvsnprintf(buf, size-1, f, va);
         va_end(va);
-    } while ((unsigned)len > size-1);
+    } while (len < 0);
 
     buf[size-1] = 0;
     initputs(buf);
@@ -434,17 +422,19 @@ void fill_glinfo(void)
     glinfo.shadow   = !!Bstrstr(glinfo.extensions, "GL_ARB_shadow");
     glinfo.texnpot  = !!Bstrstr(glinfo.extensions, "GL_ARB_texture_non_power_of_two") || !!Bstrstr(glinfo.extensions, "GL_OES_texture_npot");
 
+#if !defined EDUKE32_GLES
     glinfo.bgra             = !!Bstrstr(glinfo.extensions, "GL_EXT_bgra");
     glinfo.bufferstorage    = !!Bstrstr(glinfo.extensions, "GL_ARB_buffer_storage");
+    glinfo.clamptoedge      = !!Bstrstr(glinfo.extensions, "GL_EXT_texture_edge_clamp") || !!Bstrstr(glinfo.extensions, "GL_SGIS_texture_edge_clamp");
     glinfo.debugoutput      = !!Bstrstr(glinfo.extensions, "GL_ARB_debug_output");
     glinfo.depthclamp       = !!Bstrstr(glinfo.extensions, "GL_ARB_depth_clamp");
     glinfo.glsl             = !!Bstrstr(glinfo.extensions, "GL_ARB_shader_objects");
     glinfo.multitex         = !!Bstrstr(glinfo.extensions, "GL_ARB_multitexture");
     glinfo.occlusionqueries = !!Bstrstr(glinfo.extensions, "GL_ARB_occlusion_query");
     glinfo.rect             = !!Bstrstr(glinfo.extensions, "GL_NV_texture_rectangle") || !!Bstrstr(glinfo.extensions, "GL_EXT_texture_rectangle");
-    glinfo.samplerobjects   = !!Bstrstr(glinfo.extensions, "GL_ARB_sampler_objects");
     glinfo.sync             = !!Bstrstr(glinfo.extensions, "GL_ARB_sync");
     glinfo.texcompr         = !!Bstrstr(glinfo.extensions, "GL_ARB_texture_compression") && Bstrcmp(glinfo.vendor, "ATI Technologies Inc.");
+    glinfo.vbos             = !!Bstrstr(glinfo.extensions, "GL_ARB_vertex_buffer_object");
     glinfo.vsync            = !!Bstrstr(glinfo.extensions, "WGL_EXT_swap_control") || !!Bstrstr(glinfo.extensions, "GLX_EXT_swap_control");
 
 # ifdef DYNAMIC_GLEXT
@@ -455,8 +445,7 @@ void fill_glinfo(void)
         glinfo.texcompr = 0;
     }
 # endif
-
-#if defined EDUKE32_GLES
+#else
     // don't bother checking because ETC2 et al. are not listed in extensions anyway
     glinfo.texcompr = 1; // !!Bstrstr(glinfo.extensions, "GL_OES_compressed_ETC1_RGB8_texture");
 #endif
@@ -562,7 +551,8 @@ int osdcmd_glinfo(osdcmdptr_t UNUSED(parm))
 {
     UNREFERENCED_CONST_PARAMETER(parm);
 
-    OSD_Printf("OpenGL information\n %s %s %s\n", glinfo.vendor, glinfo.renderer, glinfo.version);
+    initprintf("OpenGL information\n %s %s %s\n",
+               glinfo.vendor, glinfo.renderer, glinfo.version);
 
     if (!glinfo.filled)
         return OSDCMD_OK;
@@ -571,22 +561,24 @@ int osdcmd_glinfo(osdcmdptr_t UNUSED(parm))
 
 #define SUPPORTED(x) (x ? s[0] : s[1])
 
-    OSD_Printf(" BGRA textures:           %s\n", SUPPORTED(glinfo.bgra));
-    OSD_Printf(" Buffer storage:          %s\n", SUPPORTED(glinfo.bufferstorage));
-    OSD_Printf(" Debug output:            %s\n", SUPPORTED(glinfo.debugoutput));
-    OSD_Printf(" Depth textures:          %s\n", SUPPORTED(glinfo.depthtex));
-    OSD_Printf(" Frame buffer objects:    %s\n", SUPPORTED(glinfo.fbos));
-    OSD_Printf(" GLSL:                    %s\n", SUPPORTED(glinfo.glsl));
-    OSD_Printf(" Maximum anisotropy:      %.1f%s\n", glinfo.maxanisotropy, glinfo.maxanisotropy > 1.0 ? "" : " (no anisotropic filtering)");
-    OSD_Printf(" Multi-texturing:         %s\n", SUPPORTED(glinfo.multitex));
-    OSD_Printf(" Non-power-of-2 textures: %s\n", SUPPORTED(glinfo.texnpot));
-    OSD_Printf(" Occlusion queries:       %s\n", SUPPORTED(glinfo.occlusionqueries));
-    OSD_Printf(" Rectangle textures:      %s\n", SUPPORTED(glinfo.rect));
-    OSD_Printf(" Sampler objects:         %s\n", SUPPORTED(glinfo.samplerobjects));
-    OSD_Printf(" Shadow textures:         %s\n", SUPPORTED(glinfo.shadow));
-    OSD_Printf(" Sync:                    %s\n", SUPPORTED(glinfo.sync));
-    OSD_Printf(" Texture compression:     %s\n", SUPPORTED(glinfo.texcompr));
-
+    initprintf(" BGRA textures:           %s\n", SUPPORTED(glinfo.bgra));
+    initprintf(" Clamp-to-edge:           %s\n", SUPPORTED(glinfo.clamptoedge));
+    initprintf(" Framebuffer objects:     %s\n", SUPPORTED(glinfo.fbos));
+    initprintf(" Multi-texturing:         %s\n", SUPPORTED(glinfo.multitex));
+    initprintf(" Non-power-of-2 textures: %s\n", SUPPORTED(glinfo.texnpot));
+#ifndef EDUKE32_GLES
+    initprintf(" Buffer storage:          %s\n", SUPPORTED(glinfo.bufferstorage));
+    initprintf(" Debug output:            %s\n", SUPPORTED(glinfo.debugoutput));
+    initprintf(" Depth textures:          %s\n", SUPPORTED(glinfo.depthtex));
+    initprintf(" GLSL:                    %s\n", SUPPORTED(glinfo.glsl));
+    initprintf(" Occlusion queries:       %s\n", SUPPORTED(glinfo.occlusionqueries));
+    initprintf(" Rectangle textures:      %s\n", SUPPORTED(glinfo.rect));
+    initprintf(" Shadow textures:         %s\n", SUPPORTED(glinfo.shadow));
+    initprintf(" Sync:                    %s\n", SUPPORTED(glinfo.sync));
+    initprintf(" Texture compression:     %s\n", SUPPORTED(glinfo.texcompr));
+    initprintf(" Vertex buffer objects:   %s\n", SUPPORTED(glinfo.vbos));
+#endif
+    initprintf(" Maximum anisotropy:      %.1f%s\n", glinfo.maxanisotropy, glinfo.maxanisotropy > 1.0 ? "" : " (no anisotropic filtering)");
     if (GLVersion.major)
         OSD_Printf(" GL context version:      %d.%d\n", GLVersion.major, GLVersion.minor);
 
@@ -597,25 +589,6 @@ int osdcmd_glinfo(osdcmdptr_t UNUSED(parm))
     return OSDCMD_OK;
 }
 #endif
-
-static int osdcmd_displayindex(osdcmdptr_t parm)
-{
-    int d = 0;
-
-    if (parm->numparms != 1 || (unsigned)(d = Bstrtol(parm->parms[0], NULL, 10)) >= (unsigned)g_numdisplays)
-    {
-        OSD_Puts("r_displayindex: change video display.\nDetected displays:\n");
-        for (d = 0; d < g_numdisplays; d++)
-            OSD_Printf(" %s\n", videoGetDisplayName(d));
-        return OSDCMD_OK;
-    }
-
-    OSD_Printf("%s %d\n", parm->name, d);
-    r_displayindex = d;
-    osdcmd_restartvid(NULL);
-
-    return OSDCMD_OK;
-}
 
 static int osdcmd_cvar_set_baselayer(osdcmdptr_t parm)
 {
@@ -649,6 +622,7 @@ int32_t baselayer_init(void)
     {
         { "lz4compressionlevel","adjust LZ4 compression level used for savegames",(void *) &lz4CompressionLevel, CVAR_INT, 1, 32 },
         { "r_borderless", "borderless windowed mode: 0: never  1: always  2: if resolution matches desktop", (void *) &r_borderless, CVAR_INT|CVAR_RESTARTVID, 0, 2 },
+        { "r_displayindex","index of output display",(void *)&r_displayindex, CVAR_INT|CVAR_RESTARTVID, 0, 10 },
         { "r_usenewaspect","enable/disable new screen aspect ratio determination code",(void *) &r_usenewaspect, CVAR_BOOL, 0, 1 },
         { "r_screenaspect","if using r_usenewaspect and in fullscreen, screen aspect ratio in the form XXYY, e.g. 1609 for 16:9",
           (void *) &r_screenxy, SCREENASPECT_CVAR_TYPE, 0, 9999 },
@@ -676,9 +650,6 @@ int32_t baselayer_init(void)
 
     for (auto & i : cvars_engine)
         OSD_RegisterCvar(&i, (i.flags & CVAR_FUNCPTR) ? osdcmd_cvar_set_baselayer : osdcmd_cvar_set);
-
-    static osdcvardata_t displayindex = { "r_displayindex","index of output display",(void*)&r_displayindex, CVAR_INT | CVAR_FUNCPTR, 0, 8 };
-    OSD_RegisterCvar(&displayindex, osdcmd_displayindex);
 
 #ifdef USE_OPENGL
     OSD_RegisterFunction("setrendermode","setrendermode <number>: sets the engine's rendering mode.\n"

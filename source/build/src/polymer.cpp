@@ -3,7 +3,6 @@
 #if defined USE_OPENGL && defined POLYMER
 
 #include "compat.h"
-#include "common.h"
 
 #define POLYMER_C
 #include "polymer.h"
@@ -759,6 +758,7 @@ int32_t             polymer_init(void)
         !glinfo.fbos ||
         !glinfo.rect ||
         !glinfo.multitex ||
+        !glinfo.vbos ||
         !glinfo.occlusionqueries ||
         !glinfo.glsl)
     {
@@ -829,9 +829,9 @@ int32_t             polymer_init(void)
                               prhighpalookups[i][j].data);     // data pointer
                 glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                 glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-                glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-                glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, glinfo.clamptoedge?GL_CLAMP_TO_EDGE:GL_CLAMP);
+                glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, glinfo.clamptoedge?GL_CLAMP_TO_EDGE:GL_CLAMP);
+                glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, glinfo.clamptoedge?GL_CLAMP_TO_EDGE:GL_CLAMP);
                 polymost_bindTexture(GL_TEXTURE_3D, 0);
             }
             j++;
@@ -1574,12 +1574,12 @@ void                polymer_drawsprite(int32_t snum)
     case 1:
         prsectors[tspr->sectnum]->wallsproffset += 0.5f;
         if (!depth || mirrors[depth-1].plane)
-            glPolygonOffset(-(1.f/min(2048, sepldist(globalposx-tspr->x, globalposy-tspr->y)>>2)), -64);
+            glPolygonOffset(-1.0f, -1.0f);
         break;
     case 2:
         prsectors[tspr->sectnum]->floorsproffset += 0.5f;
         if (!depth || mirrors[depth-1].plane)
-            glPolygonOffset(-(1.f/min(2048, sepdist(globalposx-tspr->x, globalposy-tspr->y, globalposz-tspr->z)>>5)), -64);
+            glPolygonOffset(-1.0f, -1.0f);
         break;
     }
 
@@ -4045,36 +4045,13 @@ void                polymer_updatesprite(int32_t snum)
         glScalef((float)(xsize), (float)(ysize), 1.0f);
         break;
     case SPR_WALL:
-        {
-            int16_t wallnum = ((unsigned)tspr->owner >= MAXSPRITES) ? -1 : ornament[tspr->owner].wall;
-            wallspriteinfo_t *ws = ((unsigned)tspr->owner >= MAXSPRITES) ? nullptr : &ornament[tspr->owner];
-            vec2f_t const vf = { ((float)tspr->xrepeat * (float)sintable[(tspr->ang) & 2047] * (1.0f / 65536.f)) * f,
-                                 ((float)tspr->xrepeat * (float)sintable[(tspr->ang + 1536) & 2047] * (1.0f / 65536.f)) * f};
+        ang = (float)((tspr->ang + 1024) & 2047) * (360.f/2048.f);
 
-            polymost_checkornamentedsprite(tspr, &wallnum, ws);
-
-            ang = (float)((tspr->ang + 1024) & 2047) * (360.f / 2048.f);
-
-            if (wallnum != -1 && ((ws != nullptr && !ws->invalid) || polymost_testintersection(tspr->xyz, { (int)vf.x, (int)vf.y }, wallnum)))
-            {
-                fix16_t const ang16 = (gethiq16angle(wall[wallnum].x - POINT2(wallnum).x,
-                                                     wall[wallnum].y - POINT2(wallnum).y) + F16(1536)) & 0x7FFFFFF;
-
-                if (fix16_to_float(fix16_abs(getq16angledelta(fix16_from_int(tspr->ang), ang16))) <= MAXINTERSECTIONANGDIFF)
-                {
-                    if (ws != nullptr)
-                        ws->invalid = 0;
-
-                    ang = fix16_to_float(((ang16 + F16(1024)) & 0x7FFFFFF)) * (360.f / 2048.f);
-                }
-            }
-
-            glTranslatef(spos[0], spos[1], spos[2]);
-            glRotatef(-ang, 0.0f, 1.0f, 0.0f);
-            glTranslatef((float)(-xoff), (float)(yoff - centeryoff), 0.0f);
-            glScalef((float)(xsize), (float)(ysize), 1.0f);
-            break;
-        }
+        glTranslatef(spos[0], spos[1], spos[2]);
+        glRotatef(-ang, 0.0f, 1.0f, 0.0f);
+        glTranslatef((float)(-xoff), (float)(yoff-centeryoff), 0.0f);
+        glScalef((float)(xsize), (float)(ysize), 1.0f);
+        break;
     case SPR_FLOOR:
     {
         float const sang = atan2f(float(heinum), 4096.f) * (180.f * float(M_1_PI));
@@ -4312,7 +4289,7 @@ static void         polymer_drawartsky(int16_t tilenum, char palnum, int8_t shad
         polymost_bindTexture(GL_TEXTURE_2D, glpics[tileofs]);
 
         glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, &oldswrap);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, glinfo.clamptoedge?GL_CLAMP_TO_EDGE:GL_CLAMP);
 
         polymer_drawartskyquad(i, (i + increment) & (PSKYOFF_MAX - 1), height);
 
@@ -4932,8 +4909,8 @@ static void         polymer_setupartmap(int16_t tilenum, char pal, int32_t meth)
             tempbuffer);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, meth & DAMETH_CLAMPED ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, meth & DAMETH_CLAMPED ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, meth & DAMETH_CLAMPED ? glinfo.clamptoedge ? GL_CLAMP_TO_EDGE : GL_CLAMP : GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, meth & DAMETH_CLAMPED ? glinfo.clamptoedge ? GL_CLAMP_TO_EDGE : GL_CLAMP : GL_REPEAT);
         polymost_bindTexture(GL_TEXTURE_2D, 0);
         Xfree(tempbuffer);
     }
@@ -4952,8 +4929,8 @@ static void         polymer_setupartmap(int16_t tilenum, char pal, int32_t meth)
             basepaltable[curbasepal]);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, glinfo.clamptoedge ? GL_CLAMP_TO_EDGE : GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, glinfo.clamptoedge ? GL_CLAMP_TO_EDGE : GL_CLAMP);
         polymost_bindTexture(GL_TEXTURE_2D, 0);
     }
 
@@ -4971,8 +4948,8 @@ static void         polymer_setupartmap(int16_t tilenum, char pal, int32_t meth)
             palookup[pal]);
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, glinfo.clamptoedge ? GL_CLAMP_TO_EDGE : GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, glinfo.clamptoedge ? GL_CLAMP_TO_EDGE : GL_CLAMP);
         polymost_bindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
     }
 }
@@ -6357,8 +6334,8 @@ static void         polymer_initrendertargets(int32_t count)
             glTexImage2D(prrts[i].target, 0, GL_RGB, prrts[i].xdim, prrts[i].ydim, 0, GL_RGB, GL_SHORT, NULL);
             glTexParameteri(prrts[i].target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(prrts[i].target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(prrts[i].target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(prrts[i].target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(prrts[i].target, GL_TEXTURE_WRAP_S, glinfo.clamptoedge?GL_CLAMP_TO_EDGE:GL_CLAMP);
+            glTexParameteri(prrts[i].target, GL_TEXTURE_WRAP_T, glinfo.clamptoedge?GL_CLAMP_TO_EDGE:GL_CLAMP);
         } else {
             prrts[i].target = GL_TEXTURE_2D;
             prrts[i].xdim = 128 << pr_shadowdetail;
@@ -6372,8 +6349,8 @@ static void         polymer_initrendertargets(int32_t count)
                 glTexImage2D(prrts[i].target, 0, GL_RGB, prrts[i].xdim, prrts[i].ydim, 0, GL_RGB, GL_SHORT, NULL);
                 glTexParameteri(prrts[i].target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
                 glTexParameteri(prrts[i].target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-                glTexParameteri(prrts[i].target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-                glTexParameteri(prrts[i].target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                glTexParameteri(prrts[i].target, GL_TEXTURE_WRAP_S, glinfo.clamptoedge?GL_CLAMP_TO_EDGE:GL_CLAMP);
+                glTexParameteri(prrts[i].target, GL_TEXTURE_WRAP_T, glinfo.clamptoedge?GL_CLAMP_TO_EDGE:GL_CLAMP);
             }
         }
 
@@ -6383,8 +6360,8 @@ static void         polymer_initrendertargets(int32_t count)
         glTexImage2D(prrts[i].target, 0, GL_DEPTH_COMPONENT, prrts[i].xdim, prrts[i].ydim, 0, GL_DEPTH_COMPONENT, GL_SHORT, NULL);
         glTexParameteri(prrts[i].target, GL_TEXTURE_MIN_FILTER, pr_shadowfiltering ? GL_LINEAR : GL_NEAREST);
         glTexParameteri(prrts[i].target, GL_TEXTURE_MAG_FILTER, pr_shadowfiltering ? GL_LINEAR : GL_NEAREST);
-        glTexParameteri(prrts[i].target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(prrts[i].target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(prrts[i].target, GL_TEXTURE_WRAP_S, glinfo.clamptoedge?GL_CLAMP_TO_EDGE:GL_CLAMP);
+        glTexParameteri(prrts[i].target, GL_TEXTURE_WRAP_T, glinfo.clamptoedge?GL_CLAMP_TO_EDGE:GL_CLAMP);
         glTexParameteri(prrts[i].target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
         glTexParameteri(prrts[i].target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
         glTexParameteri(prrts[i].target, GL_DEPTH_TEXTURE_MODE, GL_ALPHA);

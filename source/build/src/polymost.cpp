@@ -137,6 +137,7 @@ int32_t r_fullbrights = 1;
 int32_t r_vertexarrays = 1;
 #ifdef USE_GLEXT
 //POGOTODO: we no longer support rendering without VBOs -- update any outdated pre-GL2 code that renders without VBOs
+int32_t r_vbos = 1;
 int32_t r_vbocount = 64;
 #endif
 int32_t r_animsmoothing = 1;
@@ -941,7 +942,6 @@ void polymost_useShaderProgram(uint32_t shaderID)
 }
 
 // one-time initialization of OpenGL for polymost
-void polymost_clearOrnamentSprites(void);
 void polymost_glinit()
 {
     glHint(GL_FOG_HINT, GL_NICEST);
@@ -1198,8 +1198,6 @@ void polymost_glinit()
 
     texcache_setupmemcache();
     texcache_checkgarbage();
-
-    polymost_clearOrnamentSprites();
 
 #if defined EDUKE32_GLES
     Polymost_DetermineTextureFormatSupport();
@@ -1458,8 +1456,9 @@ static void resizeglcheck(void)
 
     float m[4][4];
     Bmemset(m,0,sizeof(m));
-    float const nearclip = 4.f / (gxyaspect * gyxscale * 512.f);
-    float const farclip = 8.f;
+
+    float const nearclip = 4.f / (gxyaspect * gyxscale * 1024.f);
+    float const farclip = 64.f;
 
     m[0][0] = 1.f;
     m[1][1] = fxdimen / (fydimen * ratio);
@@ -1914,13 +1913,14 @@ void uploadbasepalette(int32_t basepalnum)
     polymost_bindTexture(GL_TEXTURE_2D, paletteTextureIDs[basepalnum]);
     if (allocateTexture)
     {
+        const GLuint clamp_mode = glinfo.clamptoedge ? GL_CLAMP_TO_EDGE : GL_CLAMP;
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clamp_mode);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, clamp_mode);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 256, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, basepalWFullBrightInfo);
     }
     else
@@ -1949,13 +1949,14 @@ void uploadpalswap(int32_t palookupnum)
     polymost_bindTexture(GL_TEXTURE_2D, palswapTextureID);
     if (allocateTexture)
     {
+        const GLuint clamp_mode = glinfo.clamptoedge ? GL_CLAMP_TO_EDGE : GL_CLAMP;
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clamp_mode);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, clamp_mode);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, PALSWAP_TEXTURE_SIZE, PALSWAP_TEXTURE_SIZE, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
     }
 
@@ -1988,6 +1989,8 @@ static int32_t tile_is_sky(int32_t tilenum)
 
 static void polymost_setuptexture(const int32_t dameth, int filter)
 {
+    const GLuint clamp_mode = glinfo.clamptoedge ? GL_CLAMP_TO_EDGE : GL_CLAMP;
+
     gltexfiltermode = clamp(gltexfiltermode, 0, NUMGLFILTERMODES-1);
 
     if (filter == -1)
@@ -2010,14 +2013,14 @@ static void polymost_setuptexture(const int32_t dameth, int filter)
 
     if (!(dameth & DAMETH_CLAMPED))
     {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clamp_if_tile_is_sky(dapic, GL_CLAMP_TO_EDGE));
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clamp_if_tile_is_sky(dapic, clamp_mode));
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     }
     else
     {
         // For sprite textures, clamping looks better than wrapping
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clamp_mode);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, clamp_mode);
     }
 }
 
@@ -2065,13 +2068,31 @@ static void gloadtile_art_indexed(int32_t dapic, int32_t dameth, pthtyp *pth, in
         }
 
         if (doalloc)
+        {
             glGenTextures(1, (GLuint *)&pth->glpic);
-
+        }
         polymost_bindTexture(GL_TEXTURE_2D, pth->glpic);
 
         if (doalloc)
-            polymost_setuptexture(dameth, -1);
-        else if (!tileIsPacked && siz != pth->siz)
+        {
+            const GLuint clamp_mode = glinfo.clamptoedge ? GL_CLAMP_TO_EDGE : GL_CLAMP;
+            if (!(dameth & DAMETH_CLAMPED))
+            {
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clamp_if_tile_is_sky(dapic, clamp_mode));
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            }
+            else
+            {
+                // For sprite textures, clamping looks better than wrapping
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clamp_mode);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, clamp_mode);
+            }
+        }
+
+        if (!doalloc &&
+            !tileIsPacked &&
+            (siz.x != pth->siz.x ||
+             siz.y != pth->siz.y))
         {
             //POGO: resize our texture to match the tile data
             doalloc = true;
@@ -2202,13 +2223,8 @@ void gloadtile_art(int32_t dapic, int32_t dapal, int32_t tintpalnum, int32_t das
 
                     if (!fullbrightloadingpass && tintpalnum >= 0)
                     {
-                        hictinting_applypixcolor(wpptr, tintpalnum, true);
+                        hictinting_applypixcolor(wpptr, tintpalnum);
                     }
-
-                    //swap r & b so that we deal with the data as BGRA
-                    uint8_t tmpR = wpptr->r;
-                    wpptr->r = wpptr->b;
-                    wpptr->b = tmpR;
                 }
             }
         }
@@ -2476,8 +2492,7 @@ int32_t gloadtile_hi(int32_t dapic,int32_t dapalnum, int32_t facen, hicreplctyp 
                 al &= tcol.a = rpptr[x].a;
                 onebitalpha &= tcol.a == 0 || tcol.a == 255;
 
-                if(effect)
-                    hictinting_applypixcolor(&tcol, dapalnum, false);
+                hictinting_applypixcolor(&tcol, dapalnum);
 
                 rpptr[x] = tcol;
             }
@@ -2672,12 +2687,6 @@ int32_t polymost_maskWallHasTranslucency(uwalltype const * const wall)
 
 int32_t polymost_spriteHasTranslucency(tspritetype const * const tspr)
 {
-    if (usevoxels && (tspr->cstat & CSTAT_SPRITE_ALIGNMENT) != CSTAT_SPRITE_ALIGNMENT_SLAB && tiletovox[tspr->picnum] >= 0 && voxmodels[tiletovox[tspr->picnum]] && (voxflags[tiletovox[tspr->picnum]] & VF_NOTRANS) == VF_NOTRANS)
-        return false;
-
-    if ((tspr->cstat & CSTAT_SPRITE_ALIGNMENT) == CSTAT_SPRITE_ALIGNMENT_SLAB && voxmodels[tspr->picnum] && (voxflags[tspr->picnum] & VF_NOTRANS) == VF_NOTRANS)
-        return false;
-
     if ((tspr->cstat & CSTAT_SPRITE_TRANSLUCENT) || (tspr->clipdist & TSPR_FLAGS_DRAW_LAST) || 
         ((unsigned)tspr->owner < MAXSPRITES && spriteext[tspr->owner].alpha))
         return true;
@@ -3569,11 +3578,13 @@ static void polymost_drawpoly(vec2f_t const * const dpxy, int32_t const n, int32
     else if (!nofog)
         polymost_setFogEnabled(true);
 
+    const GLuint clamp_mode = glinfo.clamptoedge ? GL_CLAMP_TO_EDGE : GL_CLAMP;
+
     if (drawpoly_srepeat)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clamp_mode);
 
     if (drawpoly_trepeat)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, clamp_mode);
 
     if (fullbright_pass == 1)
     {
@@ -4953,11 +4964,11 @@ static inline int32_t testvisiblemost(float const x0, float const x1)
     return 0;
 }
 
-static inline int polymost_getclosestpointonwall(vec2_t const pos, int32_t dawall, vec2_t * const n)
+static inline int polymost_getclosestpointonwall(vec2_t const * const pos, int32_t dawall, vec2_t * const n)
 {
     vec2_t const w = { wall[dawall].x, wall[dawall].y };
     vec2_t const d = { POINT2(dawall).x - w.x, POINT2(dawall).y - w.y };
-    int64_t i = d.x * ((int64_t)pos.x - w.x) + d.y * ((int64_t)pos.y - w.y);
+    int64_t i = d.x * ((int64_t)pos->x - w.x) + d.y * ((int64_t)pos->y - w.y);
 
     if (i < 0)
         return 1;
@@ -6340,11 +6351,11 @@ static void polymost_drawalls(int32_t const bunch)
                     psearchstat = (nextsectnum < 0) ? 0 : 4;
                     doeditorcheck = 1;
                 }
-                // HOM prevention
+
                 if (maskingOneWay)
                 {
                     vec2_t n, pos = { globalposx, globalposy };
-                    if (!polymost_getclosestpointonwall(pos, wallnum, &n) && klabs(pos.x - n.x) + klabs(pos.y - n.y) <= 128)
+                    if (!polymost_getclosestpointonwall(&pos, wallnum, &n) && klabs(pos.x - n.x) + klabs(pos.y - n.y) <= 128)
                         break;
                 }
 
@@ -7329,24 +7340,34 @@ void polymost_completeMirror()
     glDisable(GL_STENCIL_TEST);
 }
 
-wallspriteinfo_t ornament[MAXSPRITES];
-
-void polymost_clearOrnamentSprites(void) { Bmemset(ornament, 0, sizeof(ornament)); }
-void Polymost_prepare_loadboard(void) { polymost_clearOrnamentSprites(); }
-
-int32_t polymost_findintersectingwall(tspritetype const &tspr)
+typedef struct
 {
-    int32_t dist = MAXINTERSECTIONLINEDIST, closest = -1;
-    auto const sect = (usectortype  * )&sector[tspr.sectnum];
+    uint32_t wrev;
+    uint32_t srev;
+    int16_t wall;
+    int8_t wdist;
+    int8_t filler;
+} wallspriteinfo_t;
+
+wallspriteinfo_t wsprinfo[MAXSPRITES];
+
+void Polymost_prepare_loadboard(void)
+{
+    Bmemset(wsprinfo, 0, sizeof(wsprinfo));
+}
+
+static inline int32_t polymost_findwall(tspritetype const * const tspr, vec2_t const * const tsiz, int32_t * rd)
+{
+    int32_t dist = 4, closest = -1;
+    auto const sect = (usectortype  * )&sector[tspr->sectnum];
     vec2_t n;
 
-    for (int i=sect->wallptr; i<sect->wallptr + sect->wallnum; i++)
+    for (bssize_t i=sect->wallptr; i<sect->wallptr + sect->wallnum; i++)
     {
-        if ((wall[i].nextsector == -1 || wall[i].cstat & CSTAT_WALL_1WAY
-            || ((sector[wall[i].nextsector].ceilingz > (tspr.z - ((tilesiz[tspr.picnum].y * tspr.yrepeat) << 2))) || sector[wall[i].nextsector].floorz < tspr.z))
-            && !polymost_getclosestpointonwall(tspr.xy, i, &n))
+        if ((wall[i].nextsector == -1 || ((sector[wall[i].nextsector].ceilingz > (tspr->z - ((tsiz->y * tspr->yrepeat) << 2))) ||
+             sector[wall[i].nextsector].floorz < tspr->z)) && !polymost_getclosestpointonwall((const vec2_t *) tspr, i, &n))
         {
-            int const dst = klabs(tspr.x - n.x) + klabs(tspr.y - n.y);
+            int const dst = klabs(tspr->x - n.x) + klabs(tspr->y - n.y);
 
             if (dst <= dist)
             {
@@ -7355,6 +7376,8 @@ int32_t polymost_findintersectingwall(tspritetype const &tspr)
             }
         }
     }
+
+    *rd = dist;
 
     return closest;
 }
@@ -7399,16 +7422,8 @@ int32_t polymost_lintersect(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
     return rv;
 }
 
-// it looks like the TSPR_DEPTH_OFFSET_[WALL, FLOOR] stuff might
-// be enough on its own, but it needs testing
-#define TSPR_OFFSET_FACTOR (1.f)//(1.f - (1.f/8192.f))
-#define TSPR_OFFSET_FACTOR2 (1.f - (1.f/2048.f))
-#define TSPR_DEPTH_OFFSET_WALL(x) (x * r_spritedepthmul)
-#define TSPR_DEPTH_OFFSET_FLOOR(x) (x * r_spritedepthmul)
-#define TSPR_BASE_DEPTH (1.0001f)
-
-float r_spritedepth = TSPR_BASE_DEPTH;
-float r_spritedepthmul = (1.f/8.f);
+#define TSPR_OFFSET_FACTOR .000008f
+#define TSPR_OFFSET(tspr) ((TSPR_OFFSET_FACTOR + ((tspr->owner != -1 ? tspr->owner & 63 : 1) * TSPR_OFFSET_FACTOR)) * (float)sepdist(globalposx - tspr->x, globalposy - tspr->y, globalposz - tspr->z) * 0.025f)
 
 #ifdef POLYMOST2
 void polymost2_drawsprite(int32_t snum)
@@ -7614,30 +7629,30 @@ void polymost2_drawsprite(int32_t snum)
 
         int32_t const s = tspr->owner;
         int32_t walldist = 1;
-        int32_t w = (s == -1) ? -1 : ornament[s].wall;
+        int32_t w = (s == -1) ? -1 : wsprinfo[s].wall;
 
         // find the wall most likely to be what the sprite is supposed to be ornamented against
         // this is really slow, so cache the result
-        if (s == -1 || !ornament[s].wall || (spritechanged[s] != ornament[s].srev) ||
-            (w != -1 && wallchanged[w] != ornament[s].wrev))
+        if (s == -1 || !wsprinfo[s].wall || (spritechanged[s] != wsprinfo[s].srev) ||
+            (w != -1 && wallchanged[w] != wsprinfo[s].wrev))
         {
-            w = polymost_findintersectingwall(tspr, &tsiz);
+            w = polymost_findwall(tspr, &tsiz, &walldist);
 
             if (s != -1)
             {
-                wallspriteinfo_t *ws = &ornament[s];
+                wallspriteinfo_t *ws = &wsprinfo[s];
                 ws->wall = w;
 
                 if (w != -1)
                 {
-                    ws->dist = walldist;
+                    ws->wdist = walldist;
                     ws->wrev = wallchanged[w];
                     ws->srev = spritechanged[s];
                 }
             }
         }
         else if (s != -1)
-            walldist = ornament[s].dist;
+            walldist = wsprinfo[s].wdist;
 
         // detect if the sprite is either on the wall line or the wall line and sprite intersect
         if (w != -1)
@@ -7966,24 +7981,6 @@ void polymost_voxeditorfunc(voxmodel_t *m, tspriteptr_t const tspr)
     }
 }
 
-void polymost_checkornamentedsprite(tspriteptr_t tspr, int16_t *wallnum, wallspriteinfo_t* ws)
-{
-    // finds the wall most likely to be what the sprite is supposed to be ornamented against
-    // this is really slow, so the result is cached in a wallspriteinfo_t struct if one is passed in
-
-    if (tspr->owner == -1 || !ornament[tspr->owner].wall || ((unsigned) *wallnum < (unsigned) numwalls && (unsigned) tspr->owner < MAXSPRITES
-        && (wallchanged[*wallnum] ^ spritechanged[tspr->owner]) != ornament[tspr->owner].rev))
-    {
-        *wallnum = polymost_findintersectingwall(*tspr);
-
-        if (ws != nullptr && (ws->wall = *wallnum) != -1)
-        {
-            ws->rev = wallchanged[*wallnum] ^ spritechanged[tspr->owner];
-            ws->invalid = 1;
-        }
-    }
-}
-
 void polymost_drawsprite(int32_t snum)
 {
 #ifdef POLYMOST2
@@ -8036,6 +8033,16 @@ void polymost_drawsprite(int32_t snum)
         }
     }
 
+    int32_t method = DAMETH_MASK | DAMETH_CLAMPED;
+
+    if (tspr->cstat & 2)
+        method = DAMETH_CLAMPED | ((tspr->cstat & 512) ? DAMETH_TRANS2 : DAMETH_TRANS1);
+
+    handle_blend(!!(tspr->cstat & 2), tspr->blend, !!(tspr->cstat & 512));
+
+    drawpoly_alpha = spriteext[spritenum].alpha;
+    drawpoly_blend = tspr->blend;
+
     sec = (usectorptr_t)&sector[tspr->sectnum];
 
     if (!polymost_usetileshades() || (usehightile && hicfindsubst(globalpicnum, globalpal, hictinting[globalpal].f & HICTINT_ALWAYSUSEART))
@@ -8082,16 +8089,6 @@ void polymost_drawsprite(int32_t snum)
         break;
     }
 
-    handle_blend(!!(tspr->cstat & CSTAT_SPRITE_TRANSLUCENT), tspr->blend, !!(tspr->cstat & CSTAT_SPRITE_TRANSLUCENT_INVERT));
-
-    drawpoly_alpha = spriteext[spritenum].alpha;
-    drawpoly_blend = tspr->blend;
-
-    int32_t method = DAMETH_MASK | DAMETH_CLAMPED;
-
-    if (tspr->cstat & CSTAT_SPRITE_TRANSLUCENT)
-        method = DAMETH_CLAMPED | ((tspr->cstat & CSTAT_SPRITE_TRANSLUCENT_INVERT) ? DAMETH_TRANS2 : DAMETH_TRANS1);
-
     vec3_t pos = tspr->xyz;
 
     if (spriteext[spritenum].flags & SPREXT_AWAY1)
@@ -8128,14 +8125,23 @@ void polymost_drawsprite(int32_t snum)
             // NOTE: yoff not negated not for y flipping, unlike wall and floor
             // aligned sprites.
 
-            vec2f_t s0 = { (float)(tspr->x - globalposx), (float)(tspr->y - globalposy)};
-            vec2f_t p0 = { (s0.y * gcosang - s0.x * gsinang) * TSPR_OFFSET_FACTOR, (s0.x * gcosang2 + s0.y * gsinang2) * TSPR_OFFSET_FACTOR };
+            int const ang = (getangle(tspr->x - globalposx, tspr->y - globalposy) + 1024) & 2047;
+
+            float const foffs = TSPR_OFFSET(tspr);
+
+            vec2f_t const offs = { (float) (sintable[(ang + 512) & 2047] >> 6) * foffs,
+                (float) (sintable[(ang) & 2047] >> 6) * foffs };
+
+            vec2f_t s0 = { (float)(tspr->x - globalposx) + offs.x,
+                           (float)(tspr->y - globalposy) + offs.y};
+
+            vec2f_t p0 = { s0.y * gcosang - s0.x * gsinang, s0.x * gcosang2 + s0.y * gsinang2 };
 
             if (p0.y <= SCISDIST)
                 goto _drawsprite_return;
 
             float const ryp0 = 1.f / p0.y;
-            s0 = { ghalfx * p0.x * ryp0 + ghalfx, (((float)(pos.z - globalposz)) * gyxscale * ryp0 + ghoriz) /** TSPR_OFFSET_FACTOR */};
+            s0 = { ghalfx * p0.x * ryp0 + ghalfx, ((float)(pos.z - globalposz)) * gyxscale * ryp0 + ghoriz };
 
             float const f = ryp0 * fxdimen * (1.0f / 160.f);
 
@@ -8252,8 +8258,8 @@ void polymost_drawsprite(int32_t snum)
             if (globalorientation & 8)
                 off.y = -off.y;
 
-            vec2f_t extent = { (float)tspr->xrepeat * (float)sintable[(tspr->ang) & 2047] * (1.0f / 65536.f),
-                               (float)tspr->xrepeat * (float)sintable[(tspr->ang + 1536) & 2047] * (1.0f / 65536.f) };
+            vec2f_t const extent = { (float)tspr->xrepeat * (float)sintable[(tspr->ang) & 2047] * (1.0f / 65536.f),
+                                     (float)tspr->xrepeat * (float)sintable[(tspr->ang + 1536) & 2047] * (1.0f / 65536.f) };
 
             float f = (float)(tsiz.x >> 1) + (float)off.x;
 
@@ -8262,49 +8268,61 @@ void polymost_drawsprite(int32_t snum)
             vec2f_t vec0 = { (float)(pos.x - globalposx) - vf.x,
                              (float)(pos.y - globalposy) - vf.y };
 
-            vec0.x *= TSPR_OFFSET_FACTOR;
-            vec0.y *= TSPR_OFFSET_FACTOR;
+            int32_t const s = tspr->owner;
+            int32_t walldist = 1;
+            int32_t w = (s == -1) ? -1 : wsprinfo[s].wall;
 
-            int16_t const tsprowner = tspr->owner;
-            int16_t wallnum = ((unsigned)tsprowner >= MAXSPRITES) ? -1 : ornament[tsprowner].wall;
-            wallspriteinfo_t *ws = ((unsigned)tsprowner >= MAXSPRITES) ? nullptr : &ornament[tsprowner];
-
-            polymost_checkornamentedsprite(tspr, &wallnum, ws);
-
-            // detect if the sprite is either on the wall line or the wall line and sprite intersect
-            if (wallnum != -1 && ((ws != nullptr && !ws->invalid) || polymost_testintersection(pos, { (int)vf.x, (int)vf.y }, wallnum)))
+            // find the wall most likely to be what the sprite is supposed to be ornamented against
+            // this is really slow, so cache the result
+            if (s == -1 || !wsprinfo[s].wall || (spritechanged[s] != wsprinfo[s].srev) ||
+                (w != -1 && wallchanged[w] != wsprinfo[s].wrev))
             {
-                fix16_t const ang16 = (gethiq16angle(wall[wallnum].x - POINT2(wallnum).x,
-                                                     wall[wallnum].y - POINT2(wallnum).y) + F16(1536)) & 0x7FFFFFF;
+                w = polymost_findwall(tspr, &tsiz, &walldist);
 
-                if (fix16_to_float(fix16_abs(getq16angledelta(fix16_from_int(tspr->ang), ang16))) <= MAXINTERSECTIONANGDIFF)
+                if (s != -1)
                 {
-                    vec2f_t fsin = (ws != nullptr && !ws->invalid)
-                                    ? ws->fsin
-                                    : vec2f_t { sinf(fix16_to_float(ang16) * BANG2RAD),
-                                                sinf(fix16_to_float((ang16 + F16(1536)) & 0x7FFFFFF) * BANG2RAD) };
+                    wallspriteinfo_t *ws = &wsprinfo[s];
+                    ws->wall = w;
 
-                    extent = { (float)tspr->xrepeat * fsin.x * (1.f/4.f), (float)tspr->xrepeat * fsin.y * (1.f/4.f) };
-
-                    if (ws != nullptr)
+                    if (w != -1)
                     {
-                        ws->fsin = fsin;
-                        ws->invalid = 0;
+                        ws->wdist = walldist;
+                        ws->wrev = wallchanged[w];
+                        ws->srev = spritechanged[s];
                     }
-
-                    vec0 = { (float)((pos.x - globalposx) - (extent.x * f)) * TSPR_OFFSET_FACTOR2 - fsin.x,
-                             (float)((pos.y - globalposy) - (extent.y * f)) * TSPR_OFFSET_FACTOR2 - fsin.y };
                 }
             }
+            else if (s != -1)
+                walldist = wsprinfo[s].wdist;
 
-            vec2f_t const vec1 = { extent.x * ftsiz.x + vec0.x,
-                                   extent.y * ftsiz.x + vec0.y };
+            // detect if the sprite is either on the wall line or the wall line and sprite intersect
+            if (w != -1)
+            {
+                vec2_t v = { /*Blrintf(vf.x)*/(int)vf.x, /*Blrintf(vf.y)*/(int)vf.y };
+
+                if (walldist <= 2 || ((pos.x - v.x) + (pos.x + v.x)) == (wall[w].x + POINT2(w).x) ||
+                    ((pos.y - v.y) + (pos.y + v.y)) == (wall[w].y + POINT2(w).y) ||
+                    polymost_lintersect(pos.x - v.x, pos.y - v.y, pos.x + v.x, pos.y + v.y, wall[w].x, wall[w].y,
+                                        POINT2(w).x, POINT2(w).y))
+                {
+                    int32_t const ang = getangle(wall[w].x - POINT2(w).x, wall[w].y - POINT2(w).y);
+                    float const foffs = TSPR_OFFSET(tspr);
+                    vec2f_t const offs = { (float)(sintable[(ang + 1024) & 2047] >> 6) * foffs,
+                                     (float)(sintable[(ang + 512) & 2047] >> 6) * foffs};
+
+                    vec0.x -= offs.x;
+                    vec0.y -= offs.y;
+                }
+            }
 
             vec2f_t p0 = { vec0.y * gcosang - vec0.x * gsinang,
                            vec0.x * gcosang2 + vec0.y * gsinang2 };
 
-            vec2f_t p1 = { vec1.y * gcosang - vec1.x * gsinang,
-                           vec1.x * gcosang2 + vec1.y * gsinang2 };
+            vec2f_t const pp = { extent.x * ftsiz.x + vec0.x,
+                                 extent.y * ftsiz.x + vec0.y };
+
+            vec2f_t p1 = { pp.y * gcosang - pp.x * gsinang,
+                           pp.x * gcosang2 + pp.y * gsinang2 };
 
             if ((p0.y <= SCISDIST) && (p1.y <= SCISDIST))
                 goto _drawsprite_return;
@@ -8333,17 +8351,6 @@ void polymost_drawsprite(int32_t snum)
             f = 1.f / p1.y;
             const float ryp1 = f * gyxscale;
             float sx1 = ghalfx * p1.x * f + ghalfx;
-
-            float const foffs = TSPR_DEPTH_OFFSET_WALL((1.f / (1.f + (float)(tspr - tsprite))));
-            float const dist  = sepdist(globalposx - tspr->x, globalposy - tspr->y, globalposz - tspr->z);
-
-            //if (sx0 < sx1)
-            float depthadjust = r_spritedepth + foffs / dist;
-            //
-            //else
-            //    depthadjust = 1.f - foffs / dist;
-
-            //depthadjust = clamp(depthadjust, 0.999f, 1.001f);
 
             pos.z -= ((off.y * tspr->yrepeat) << 2);
 
@@ -8380,10 +8387,10 @@ void polymost_drawsprite(int32_t snum)
 
             f = ((float) tspr->yrepeat) * ftsiz.y * 4;
 
-            float sc0 = ((float) (pos.z - globalposz - f)/* * TSPR_OFFSET_FACTOR*/) * ryp0 + ghoriz;
-            float sc1 = ((float) (pos.z - globalposz - f)/* * TSPR_OFFSET_FACTOR*/) * ryp1 + ghoriz;
-            float sf0 = ((float) (pos.z - globalposz)/* * TSPR_OFFSET_FACTOR*/) * ryp0 + ghoriz;
-            float sf1 = ((float) (pos.z - globalposz)/* * TSPR_OFFSET_FACTOR*/) * ryp1 + ghoriz;
+            float sc0 = ((float) (pos.z - globalposz - f)) * ryp0 + ghoriz;
+            float sc1 = ((float) (pos.z - globalposz - f)) * ryp1 + ghoriz;
+            float sf0 = ((float) (pos.z - globalposz)) * ryp0 + ghoriz;
+            float sf1 = ((float) (pos.z - globalposz)) * ryp1 + ghoriz;
 
             // gvx*sx0 + gvy*sc0 + gvo = 0
             // gvx*sx1 + gvy*sc1 + gvo = 0
@@ -8412,16 +8419,6 @@ void polymost_drawsprite(int32_t snum)
                 otex.v -= otex.d * ypan;
                 drawpoly_trepeat = 1;
             }
-
-            xtex.u *= depthadjust;
-            xtex.v *= depthadjust;
-            xtex.d *= depthadjust;
-            ytex.u *= depthadjust;
-            ytex.v *= depthadjust;
-            ytex.d *= depthadjust;
-            otex.u *= depthadjust;
-            otex.v *= depthadjust;
-            otex.d *= depthadjust;
 
             // Clip sprites to ceilings/floors when no parallaxing
             if (!(sector[tspr->sectnum].ceilingstat & 1))
@@ -8567,13 +8564,25 @@ void polymost_drawsprite(int32_t snum)
 
                 // Project rotated 3D points to screen
 
+                int fadjust = 0;
+
+                if (heinum == 0)
+                {
+                    // unfortunately, offsetting by only 1 isn't enough on most Android devices
+                    if (pos.z == sec->ceilingz || pos.z == sec->ceilingz + 1)
+                        pos.z = sec->ceilingz + 2, fadjust = (tspr->owner & 31);
+
+                    if (pos.z == sec->floorz || pos.z == sec->floorz - 1)
+                        pos.z = sec->floorz - 2, fadjust = -((tspr->owner & 31));
+                }
+
                 vec2f_t pxy2[6];
                 double pfy[6];
 
                 for (bssize_t j = 0; j < npoints; j++)
                 {
                     float const ryp0 = 1.f / p2[j].y;
-                    float const fs = (float)(p2[j].z - globalposz) * TSPR_OFFSET_FACTOR * gyxscale;
+                    float const fs = (float)(p2[j].z - globalposz + fadjust) * gyxscale;
                     pxy2[j] = { ghalfx * p2[j].x * ryp0 + ghalfx, fs * ryp0 + ghoriz };
                     pfy[j] = double(gyxscale * ryp0) + ghoriz;
                 }
@@ -8583,7 +8592,7 @@ void polymost_drawsprite(int32_t snum)
                 xtex.d = 0;
                 ytex.d = gxyaspect;
                 if (heinum == 0)
-                    ytex.d /= (double)(pos.z - globalposz) * TSPR_OFFSET_FACTOR;
+                    ytex.d /= (double)(pos.z - globalposz + fadjust);
                 otex.d = -ghoriz * ytex.d;
 
                 // copied&modified from relative alignment
@@ -8681,22 +8690,7 @@ void polymost_drawsprite(int32_t snum)
                     float const rr = Bsqrtf(fheinum * fheinum + 1.f);
                     xtex.v *= rr; ytex.v *= rr; otex.v *= rr;
                 }
-
-                float const foffs = TSPR_DEPTH_OFFSET_FLOOR((1.f / (1.f + (float)(tspr - tsprite))));
-                float const dist  = sepdist(globalposx - tspr->x, globalposy - tspr->y, globalposz - tspr->z);
-
-                float depthadjust = r_spritedepth + foffs / dist;
-
-                xtex.u *= depthadjust;
-                xtex.v *= depthadjust;
-                xtex.d *= depthadjust;
-                ytex.u *= depthadjust;
-                ytex.v *= depthadjust;
-                ytex.d *= depthadjust;
-                otex.u *= depthadjust;
-                otex.v *= depthadjust;
-                otex.d *= depthadjust;
-
+                
                 tilesiz[globalpicnum] = { (int16_t)tsiz.x, (int16_t)tsiz.y };
                 pow2xsplit = 0;
 
@@ -9890,8 +9884,6 @@ void polymost_initosdfuncs(void)
         { "r_shadeinterpolate", "enable/disable shade interpolation", (void *) &r_shadeinterpolate, CVAR_BOOL, 0, 1 },
         { "r_shadescale","multiplier for shading",(void *) &shadescale, CVAR_FLOAT, 0, 10 },
         { "r_shadescale_unbounded","enable/disable allowance of complete blackness",(void *) &shadescale_unbounded, CVAR_BOOL, 0, 1 },
-        { "r_spritedepth","depth offset for sprites",(void*)&r_spritedepth, CVAR_FLOAT|CVAR_NOSAVE, 1, 10 },
-        { "r_spritedepthmul","depth offset multiplier for sprites",(void*)&r_spritedepthmul, CVAR_FLOAT|CVAR_NOSAVE, 0, 1 },
         { "r_texcompr","enable/disable OpenGL texture compression: 0: off  1: hightile only  2: ART and hightile",(void *) &glusetexcompr, CVAR_INT, 0, 2 },
         { "r_texturemaxsize","changes the maximum OpenGL texture size limit",(void *) &gltexmaxsize, CVAR_INT | CVAR_NOSAVE, 0, 4096 },
         { "r_texturemiplevel","changes the highest OpenGL mipmap level used",(void *) &gltexmiplevel, CVAR_INT, 0, 6 },

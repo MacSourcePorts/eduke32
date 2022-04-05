@@ -64,21 +64,19 @@ extern char offscreenrendering;
 extern int32_t nofog;
 
 extern int32_t r_maxfps;
-extern int32_t g_numdisplays;
-extern int32_t g_displayindex;
 
 void calc_ylookup(int32_t bpl, int32_t lastyidx);
 
 int32_t videoCheckMode(int32_t *x, int32_t *y, int32_t c, int32_t fs, int32_t forced);
 int32_t videoSetMode(int32_t x, int32_t y, int32_t c, int32_t fs);
-void    videoGetModes(int display = -1);
+void    videoGetModes(void);
 void    videoResetMode(void);
 void    videoEndDrawing(void);
 void    videoShowFrame(int32_t);
 int32_t videoUpdatePalette(int32_t start, int32_t num);
 int32_t videoSetGamma(void);
 int32_t videoSetVsync(int32_t newSync);
-char const* videoGetDisplayName(int display);
+
 //#define DEBUG_FRAME_LOCKING
 #if !defined DEBUG_FRAME_LOCKING
 void videoBeginDrawing(void);
@@ -125,6 +123,7 @@ struct glinfo_t {
         {
             int bgra             : 1;
             int bufferstorage    : 1;
+            int clamptoedge      : 1;
             int debugoutput      : 1;
             int depthclamp       : 1;
             int depthtex         : 1;
@@ -133,11 +132,11 @@ struct glinfo_t {
             int multitex         : 1;
             int occlusionqueries : 1;
             int rect             : 1;
-            int samplerobjects   : 1;
             int shadow           : 1;
             int sync             : 1;
             int texcompr         : 1;
             int texnpot          : 1;
+            int vbos             : 1;
             int vsync            : 1;
         };
     };

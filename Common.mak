@@ -329,6 +329,8 @@ APPBASENAME ?=
 # Build toggles
 RELEASE := 1
 NOASM := 0
+# EXPERIMENTAL, unfinished x86_64 assembly routines. DO NOT ENABLE.
+USE_ASM64 := 0
 MEMMAP := 0
 CPLUSPLUS := 1
 
@@ -339,7 +341,6 @@ STARTUP_WINDOW ?= 1
 RETAIL_MENU ?= 0
 POLYMER ?= 1
 USE_OPENGL := 1
-SDL_STATIC ?= 0
 
 # Library toggles
 HAVE_GTK2 := 1
@@ -473,8 +474,8 @@ endif
 COMMONFLAGS :=
 COMPILERFLAGS := -funsigned-char
 
-CSTD := -std=gnu11
-CXXSTD := -std=gnu++14
+CSTD := -std=gnu99
+CXXSTD := -std=gnu++11
 ifneq (0,$(CLANG))
     CSTD := $(subst gnu,c,$(CSTD))
     CXXSTD := $(subst gnu,c,$(CXXSTD))
@@ -813,6 +814,9 @@ endif
 ifneq (0,$(NOASM))
     COMPILERFLAGS += -DNOASM
 endif
+ifneq (0,$(USE_ASM64))
+    COMPILERFLAGS += -DUSE_ASM64
+endif
 ifneq (0,$(MEMMAP))
     ifeq ($(PLATFORM),DARWIN)
         LINKERFLAGS += -Wl,-map -Wl,$@.memmap
@@ -927,12 +931,6 @@ ifeq ($(RENDERTYPE),SDL)
         endif
     else
         ifneq ($(SDLCONFIG),)
-            ifneq ($(SDL_STATIC),0)
-                override SDLCONFIG_LIBS := -Wl,-Bstatic -l$(SDLNAME) -Wl,-Bdynamic $(strip $(subst -l$(SDLNAME),,$(shell $(SDLCONFIG) --static-libs)))
-                # for some reason SteamRT has a GCC with --enable-default-pie but its SDL2 has it disabled. WTF?
-                LINKERFLAGS += -no-pie
-            endif
-
             SDLCONFIG_CFLAGS := $(strip $(subst -Dmain=SDL_main,,$(shell $(SDLCONFIG) --cflags)))
             SDLCONFIG_LIBS := $(strip $(subst -mwindows,,$(shell $(SDLCONFIG) --libs)))
 
@@ -1072,7 +1070,7 @@ ARCHIVE_FAILED = printf "\033[K\033[0;31mFailed creating library archive \033[1;
 RECIPE_RESULT_ARCHIVE = ; then $(ARCHIVE_OK); else $(ARCHIVE_FAILED); fi
 LINK_STATUS = printf "\033[K\033[0;0mLinking \033[1m$@\033[0;0m...\033[0m\r"
 LINK_OK = printf "\033[K\033[0;32mLinked \033[1;32m$@\033[0;32m \033[0m\n"
-LINK_FAILED = printf "\033[K\033[0;31mFailed linking \033[1;31m$@\033[0;31m!\nIf the build options, environment, or system packages have changed, run '\033[1;31mmake clean\033[0;31m' and try again.\033[0m\n"; exit 1
+LINK_FAILED = printf "\033[K\033[0;31mFailed linking \033[1;31m$@\033[0;31m!\nIf the build options, environment, or system packages have changed, run \'\033[1;31mmake clean\033[0;31m\' and try again.\033[0m\n"; exit 1
 RECIPE_RESULT_LINK = ; then $(LINK_OK); else $(LINK_FAILED); fi
 else
 RECIPE_IF =

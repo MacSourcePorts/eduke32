@@ -1429,7 +1429,7 @@ void G_NewGame(int volumeNum, int levelNum, int skillNum)
     }
 
     S_PauseSounds(false);
-    S_StopAllSounds();
+    FX_StopAllSounds();
     S_Cleanup();
 
     ready2send = 0;

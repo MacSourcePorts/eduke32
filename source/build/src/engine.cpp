@@ -101,7 +101,6 @@ int32_t novoxmips = 1;
 #endif
 static char voxlock[MAXVOXELS][MAXVOXMIPS];
 int32_t voxscale[MAXVOXELS];
-uint8_t voxflags[MAXVOXELS];
 
 static int32_t ggxinc[MAXXSIZ+1], ggyinc[MAXXSIZ+1];
 static int32_t lowrecip[1024], nytooclose;
@@ -499,9 +498,6 @@ void yax_update(int32_t resetstat)
 #endif
         nextsectbunch[0][i] = nextsectbunch[1][i] = -1;
     }
-
-    Bmemset(yax_updown, -1, sizeof(yax_updown));
-
     for (i=0; i<YAX_MAXBUNCHES; i++)
         headsectbunch[0][i] = headsectbunch[1][i] = -1;
 #if !defined NEW_MAP_FORMAT
@@ -10273,9 +10269,6 @@ static FORCE_INLINE uint8_t* getreachabilitybitmap(int const sectnum)
 
 int sectorsareconnected(int const sect1, int const sect2)
 {
-    if (!reachablesectors)
-        calc_sector_reachability();
-
     return !!bitmap_test(getreachabilitybitmap(sect1), sect2);
 }
 
@@ -10284,22 +10277,19 @@ void calc_sector_reachability(void)
     if (!numsectors)
         return;
 
-    static size_t tablesize = 0;
-    static uint16_t sectcrc = 0;
+    static uint32_t sectcrc = 0;
     uint16_t crc = getcrc16(sector, sizeof(sectortype) * numsectors, 0x1337);
 
-    if (reachablesectors && sectcrc == crc && tablesize == getreachabilitybitmapsize())
+    if (sectcrc == crc)
         return;
 
     sectcrc = crc;
-    tablesize = getreachabilitybitmapsize();
 
-    Bassert(tablesize);
-
+    Bmemset(yax_updown, -1, sizeof(yax_updown));
     Bmemset(wallsect, -1, sizeof(wallsect));
 
     DO_FREE_AND_NULL(reachablesectors);
-    reachablesectors = (uint8_t*)Xcalloc(1, tablesize);
+    reachablesectors = (uint8_t*)Xcalloc(1, getreachabilitybitmapsize());
     auto sectlist = (int16_t *)Balloca(sizeof(int16_t) * numsectors);
 
     for (int sectnum=0; sectnum<numsectors; sectnum++)
@@ -10431,6 +10421,9 @@ static int32_t engineFinishLoadBoard(const vec3_t* dapos, int16_t* dacursectnum,
     guniqhudid = 0;
 
     Bmemset(tilecols, 0, sizeof(tilecols));
+
+    calc_sector_reachability();
+
 
     return numremoved;
 }
@@ -11379,8 +11372,8 @@ int32_t videoSetGameMode(char davidoption, int32_t daupscaledxdim, int32_t daups
     daupscaledxdim = max(640, daupscaledxdim);
     daupscaledydim = max(400, daupscaledydim);
 
-    if (in3dmode() && videomodereset == 0 && (davidoption == fullscreen) && (r_displayindex == g_displayindex)
-        && (xres == daupscaledxdim) && (yres == daupscaledydim) && (bpp == dabpp) && (upscalefactor == daupscalefactor))
+    if (in3dmode() && videomodereset == 0 && (davidoption == fullscreen) &&
+        (xres == daupscaledxdim) && (yres == daupscaledydim) && (bpp == dabpp) && (upscalefactor == daupscalefactor))
         return 0;
 
     Bstrcpy(kensmessage, "!!!! BUILD engine&tools programmed by Ken Silverman of E.G. RI."
@@ -11617,7 +11610,6 @@ void vox_undefine(int32_t const tile)
         voxoff[voxindex][j] = 0;
     }
     voxscale[voxindex] = 65536;
-    voxflags[voxindex] = 0;
     tiletovox[tile] = -1;
 
     // TODO: nextvoxid
@@ -11795,18 +11787,6 @@ fix16_t __fastcall gethiq16angle(int32_t xvect, int32_t yvect)
 
     return rv;
 }
-
-fix16_t __fastcall getq16angledelta(fix16_t first, fix16_t second)
-{
-    first &= 0x7FFFFFF;
-    second &= 0x7FFFFFF;
-
-    if (klabs(fix16_sub(first, second)) < F16(1024))
-        return fix16_sub(second, first);
-    else 
-        return fix16_sub((second > F16(1024)) ? fix16_sub(second, F16(2048)) : second, (first > F16(1024)) ? fix16_sub(first, F16(2048)) : first);
-}
-
 
 //
 // ksqrt
@@ -12576,29 +12556,6 @@ void updatesector_tryremaining(int32_t const x, int32_t const y, int16_t *const 
     *sectnum = -1;
 }
 
-// same as above but with z height checks
-void updatesectorz_tryremaining(int32_t const x, int32_t const y, int32_t const z, int16_t *const sectnum)
-{
-    // we need to support passing in a sectnum of -1, unfortunately
-    int16_t const sect = *sectnum == -1 ? numsectors >> 1 : *sectnum;
-    int trycnt = max<int>(numsectors - sect, sect);
-
-    if (inside_exclude_z_p(x, y, z, sect, updatesectorneighbormap))
-        SET_AND_RETURN(*sectnum, sect);
-
-    int16_t highsect = sect, lowsect = sect;
-
-    do
-    {
-        if (highsect < numsectors-1 && inside_exclude_z_p(x, y, z, ++highsect, updatesectorneighbormap))
-            SET_AND_RETURN(*sectnum, highsect);
-        if (lowsect > 0 && inside_exclude_z_p(x, y, z, --lowsect, updatesectorneighbormap))
-            SET_AND_RETURN(*sectnum, lowsect);
-    } while (trycnt--);
-
-    *sectnum = -1;
-}
-
 void updatesector(int32_t const x, int32_t const y, int16_t* const sectnum)
 {
     MICROPROFILE_SCOPEI("Engine", EDUKE32_FUNCTION, MP_AUTO);
@@ -12637,17 +12594,9 @@ void updatesectorexclude(int32_t const x, int32_t const y, int16_t * const sectn
         while (--wallsleft);
     }
 
-    int16_t const sect = *sectnum == -1 ? numsectors >> 1 : *sectnum;
-    int trycnt = max<int>(numsectors - sect, sect);
-    int16_t highsect = sect, lowsect = sect;
-
-    do
-    {
-        if (highsect < numsectors-1 && inside_exclude_p(x, y, ++highsect, excludesectbitmap))
-            SET_AND_RETURN(*sectnum, highsect);
-        if (lowsect > 0 && inside_exclude_p(x, y, --lowsect, excludesectbitmap))
-            SET_AND_RETURN(*sectnum, lowsect);
-    } while (trycnt--);
+    for (bssize_t i=numsectors-1; i>=0; --i)
+        if (inside_exclude_p(x, y, i, excludesectbitmap))
+            SET_AND_RETURN(*sectnum, i);
 
     *sectnum = -1;
 }
@@ -12747,7 +12696,7 @@ void updatesectorz(int32_t const x, int32_t const y, int32_t const z, int16_t * 
     if (sect != -1)
         SET_AND_RETURN(*sectnum, sect);
 
-    updatesectorz_tryremaining(x, y, z, sectnum);
+    updatesector_tryremaining(x, y, sectnum);
 }
 
 void updatesectorneighbor(int32_t const x, int32_t const y, int16_t * const sectnum, int32_t initialMaxDistance /*= INITIALUPDATESECTORDIST*/, int32_t maxDistance /*= MAXUPDATESECTORDIST*/)

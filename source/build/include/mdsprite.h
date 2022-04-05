@@ -196,13 +196,15 @@ typedef struct { vert_t v[4]; } voxrect_t;
 
 typedef struct
 {
-    SHARED_MODEL_DATA;
+    //WARNING: This top block is a union of md2model,md3model,voxmodel: Make sure it matches!
+    int32_t mdnum; //VOX=1, MD2=2, MD3=3. NOTE: must be first in structure!
+    int32_t shadeoff;
+    float scale, bscale, zadd, yoffset;
+    uint32_t *texid;    // skins for palettes
+    int32_t flags;
 
     //VOX specific stuff:
-    GLfloat *vertex;
-    GLuint *index;
-    int32_t qcnt;
-
+    voxrect_t *quad; int32_t qcnt, qfacind[7];
     int32_t *mytex, mytexx, mytexy;
     vec3_t siz;
     vec3f_t piv;

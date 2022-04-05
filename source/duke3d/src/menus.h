@@ -49,7 +49,6 @@ enum MenuIndex_t {
     MENU_USERMAP        = 101,
     MENU_NEWGAMECUSTOM  = 102,
     MENU_NEWGAMECUSTOMSUB = 103,
-    MENU_NEWGAMECUSTOML3 = 104,
     MENU_SKILL          = 110,
     MENU_GAMESETUP      = 200,
     MENU_OPTIONS        = 202,
@@ -366,7 +365,6 @@ typedef enum MenuType_t
     Message,
     TextForm,
     FileSelect,
-    List,
 } MenuType_t;
 
 typedef struct MenuMenu_t
@@ -507,7 +505,6 @@ extern int32_t m_mousewake_watchpoint, m_menuchange_watchpoint;
 # define MOUSEWATCHPOINTCONDITIONAL(condition) ((condition) || m_mousewake_watchpoint || m_menuchange_watchpoint == 3)
 #endif
 
-#define MAXMENUGAMEPLAYLAYERS 3
 #define MAXMENUGAMEPLAYENTRIES 7
 
 enum MenuGameplayEntryFlags
@@ -521,16 +518,20 @@ typedef struct MenuGameplayEntry
 {
     char name[64];
     uint8_t flags;
-    MenuGameplayEntry* subentries;
 
     bool isValid() const { return name[0] != '\0'; }
 } MenuGameplayEntry;
 
-extern MenuGameplayEntry g_MenuGameplayEntries[MAXMENUGAMEPLAYENTRIES];
+typedef struct MenuGameplayStemEntry
+{
+    MenuGameplayEntry entry;
+    MenuGameplayEntry subentries[MAXMENUGAMEPLAYENTRIES];
+} MenuGameplayStemEntry;
+
+extern MenuGameplayStemEntry g_MenuGameplayEntries[MAXMENUGAMEPLAYENTRIES];
 
 extern MenuEntry_t ME_NEWGAMECUSTOMENTRIES[MAXMENUGAMEPLAYENTRIES];
 extern MenuEntry_t ME_NEWGAMECUSTOMSUBENTRIES[MAXMENUGAMEPLAYENTRIES][MAXMENUGAMEPLAYENTRIES];
-extern MenuEntry_t ME_NEWGAMECUSTOML3ENTRIES[MAXMENUGAMEPLAYENTRIES][MAXMENUGAMEPLAYENTRIES][MAXMENUGAMEPLAYENTRIES];
 
 #ifdef __cplusplus
 }

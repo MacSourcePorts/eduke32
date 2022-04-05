@@ -47,13 +47,12 @@ enum
    AdLibErr_Ok      = 0,
 };
 
-static int AL_Volume = MIDI_MaxVolume;
-static opl3_chip AL_Chip;
-
 static void AL_Shutdown(void);
 static int ErrorCode;
 
 int AdLibDrv_GetError(void) { return ErrorCode; }
+
+static int AL_Volume = MIDI_MaxVolume;
 
 const char *AdLibDrv_ErrorString(int const ErrorNumber)
 {
@@ -96,7 +95,7 @@ int AdLibDrv_MIDI_StartPlayback(void)
 {
     AdLibDrv_MIDI_HaltPlayback();
 
-    AL_Init();
+    AL_Init(MV_MixRate);
     MV_HookMusicRoutine(AdLibDrv_MIDI_Service);
 
     return MIDI_Ok;
@@ -122,7 +121,7 @@ void AdLibDrv_MIDI_Service(void)
             MV_MIDIRenderTimer -= MV_MixRate;
         }
         if (MV_MIDIRenderTempo >= 0) MV_MIDIRenderTimer += MV_MIDIRenderTempo;
-        OPL3_GenerateResampled(&AL_Chip, buf);
+        OPL3_GenerateResampled(AL_GetChip(), buf);
         if (MV_Channels == 2)
         {
             *buffer16++ = clamp((buf[0] * AL_PostAmp * AL_Volume * (1.f / MIDI_MaxVolume)), INT16_MIN, INT16_MAX);
@@ -133,6 +132,9 @@ void AdLibDrv_MIDI_Service(void)
     }
 }
 
+static opl3_chip chip;
+
+opl3_chip *AL_GetChip(void) { return &chip; }
 
 /* Definition of octave information to be ORed onto F-Number */
 
@@ -266,13 +268,13 @@ static void LL_AddNode(char * __restrict item, char ** __restrict head, char ** 
 }
 
 
-static FORCE_INLINE void AL_SendOutputToPort(int const port, int const reg, int const data)
+static void AL_SendOutputToPort(int const port, int const reg, int const data)
 {
-    OPL3_WriteRegBuffered(&AL_Chip, (uint16_t)(reg + ((port & 2) << 7)), (uint8_t)data);
+    OPL3_WriteRegBuffered(&chip, (uint16_t)(reg + ((port & 2) << 7)), (uint8_t)data);
 }
 
 
-static FORCE_INLINE void AL_SendOutput(int const voice, int const reg, int const data)
+static void AL_SendOutput(int const voice, int const reg, int const data)
 {
     AL_SendOutputToPort(voice ? AL_LeftPort : AL_RightPort, reg, data);
 }
@@ -642,7 +644,7 @@ static void AL_NoteOn(int const channel, int const key, int const velocity)
 }
 
 
-static FORCE_INLINE void AL_AllNotesOff(int const channel)
+static inline void AL_AllNotesOff(int const channel)
 {
     while (Channel[channel].Voices.start != nullptr)
         AL_NoteOff(channel, Channel[channel].Voices.start->key, 0);
@@ -748,16 +750,18 @@ static void AL_SetVolume(int volume) { AL_Volume = clamp(volume, 0, MIDI_MaxVolu
 
 static void AL_Shutdown(void)
 {
-    OPL3_Reset(&AL_Chip, MV_MixRate);
-    AL_Reset();
     AL_ResetVoices();
+    AL_Reset();
 }
 
 
-static int AL_Init(void)
+static int AL_Init(int const rate)
 {
-    AL_Shutdown();
+    OPL3_Reset(&chip, rate);
+
     AL_CalcPitchInfo();
+    AL_Reset();
+    AL_ResetVoices();
 
     return AdLibErr_Ok;
 }

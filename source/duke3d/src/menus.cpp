@@ -208,7 +208,7 @@ they effectively stand in for curly braces as struct initializers.
 */
 
 
-MenuGameplayEntry g_MenuGameplayEntries[MAXMENUGAMEPLAYENTRIES];
+MenuGameplayStemEntry g_MenuGameplayEntries[MAXMENUGAMEPLAYENTRIES];
 
 // common font types
 // tilenums are set after namesdyn runs
@@ -230,7 +230,6 @@ static MenuMenuFormat_t MMF_Top_Main =             { {  MENU_MARGIN_CENTER<<16, 
 static MenuMenuFormat_t MMF_Top_Episode =          { {  MENU_MARGIN_CENTER<<16, 48<<16, }, -(190<<16) };
 static MenuMenuFormat_t MMF_Top_NewGameCustom =    { {  MENU_MARGIN_CENTER<<16, 48<<16, }, -(190<<16) };
 static MenuMenuFormat_t MMF_Top_NewGameCustomSub = { {  MENU_MARGIN_CENTER<<16, 48<<16, }, -(190<<16) };
-static MenuMenuFormat_t MMF_Top_NewGameCustomL3 =  { {  MENU_MARGIN_CENTER<<16, 48<<16, }, -(190<<16) };
 static MenuMenuFormat_t MMF_Top_Skill =            { {  MENU_MARGIN_CENTER<<16, 58<<16, }, -(190<<16) };
 static MenuMenuFormat_t MMF_Top_Options =          { {  MENU_MARGIN_CENTER<<16, 38<<16, }, -(190<<16) };
 static MenuMenuFormat_t MMF_Top_Joystick_Network = { {  MENU_MARGIN_CENTER<<16, 70<<16, }, -(190<<16) };
@@ -243,7 +242,7 @@ static MenuMenuFormat_t MMF_MouseJoySetupBtns =    { {                  76<<16, 
 static MenuMenuFormat_t MMF_FuncList =             { {                 100<<16, 51<<16, },    152<<16 };
 static MenuMenuFormat_t MMF_ColorCorrect =         { { MENU_MARGIN_REGULAR<<16, 86<<16, },    190<<16 };
 static MenuMenuFormat_t MMF_BigSliders =           { {    MENU_MARGIN_WIDE<<16, 37<<16, },    190<<16 };
-static MenuMenuFormat_t MMF_LoadSave =             { {                 200<<16, 49<<16, },    180<<16 };
+static MenuMenuFormat_t MMF_LoadSave =             { {                 200<<16, 49<<16, },    145<<16 };
 static MenuMenuFormat_t MMF_NetSetup =             { {                  36<<16, 38<<16, },    190<<16 };
 static MenuMenuFormat_t MMF_FileSelectLeft =       { {                  40<<16, 45<<16, },    162<<16 };
 static MenuMenuFormat_t MMF_FileSelectRight =      { {                 164<<16, 45<<16, },    162<<16 };
@@ -306,7 +305,7 @@ That way, individual menu entries can be ifdef'd out painlessly.
 */
 
 static MenuLink_t MEO_NULL = { MENU_NULL, MA_None, };
-static const char* MenuCustom = "CVAR";
+static const char* MenuCustom = "Custom";
 
 #define MAKE_MENUSTRING(...) { NULL, __VA_ARGS__, }
 #define MAKE_MENUOPTION(...) { __VA_ARGS__, -1, }
@@ -406,18 +405,12 @@ static MenuEntry_t *MEL_EPISODE[MAXVOLUMES+2]; // +2 for spacer and User Map
 
 static MenuLink_t MEO_NEWGAMECUSTOM_TEMPLATE = { MENU_NEWGAMECUSTOMSUB, MA_Advance, };
 static MenuLink_t MEO_NEWGAMECUSTOM[MAXMENUGAMEPLAYENTRIES];
-static MenuLink_t MEO_NEWGAMECUSTOMSUB_TEMPLATE = { MENU_NEWGAMECUSTOML3, MA_Advance, };
+static MenuLink_t MEO_NEWGAMECUSTOMSUB_TEMPLATE = { MENU_SKILL, MA_Advance, };
 static MenuLink_t MEO_NEWGAMECUSTOMSUB[MAXMENUGAMEPLAYENTRIES][MAXMENUGAMEPLAYENTRIES];
 MenuEntry_t ME_NEWGAMECUSTOMENTRIES[MAXMENUGAMEPLAYENTRIES];
 MenuEntry_t ME_NEWGAMECUSTOMSUBENTRIES[MAXMENUGAMEPLAYENTRIES][MAXMENUGAMEPLAYENTRIES];
 static MenuEntry_t *MEL_NEWGAMECUSTOM[MAXMENUGAMEPLAYENTRIES];
 static MenuEntry_t *MEL_NEWGAMECUSTOMSUB[MAXMENUGAMEPLAYENTRIES];
-
-// Newgamecustom Layer 3
-static MenuLink_t MEO_NEWGAMECUSTOML3_TEMPLATE = { MENU_SKILL, MA_Advance, };
-static MenuLink_t MEO_NEWGAMECUSTOML3[MAXMENUGAMEPLAYENTRIES][MAXMENUGAMEPLAYENTRIES][MAXMENUGAMEPLAYENTRIES];
-MenuEntry_t ME_NEWGAMECUSTOML3ENTRIES[MAXMENUGAMEPLAYENTRIES][MAXMENUGAMEPLAYENTRIES][MAXMENUGAMEPLAYENTRIES];
-static MenuEntry_t *MEL_NEWGAMECUSTOML3[MAXMENUGAMEPLAYENTRIES];
 
 static char const s_Undefined[] = "Undefined";
 
@@ -520,7 +513,7 @@ MAKE_MENU_TOP_ENTRYLINK( "Touch Setup", MEF_BigOptionsRtSections, OPTIONS_TOUCHS
 MAKE_MENU_TOP_ENTRYLINK("Cheats", MEF_OptionsMenu, OPTIONS_CHEATS, MENU_CHEATS);
 #endif
 
-static int32_t newresolution, newrendermode, newfullscreen, newvsync, newborderless, newmaxfps, newdisplayindex;
+static int32_t newresolution, newrendermode, newfullscreen, newvsync, newborderless, newmaxfps;
 
 enum resflags_t {
     RES_FS  = 0x1,
@@ -542,13 +535,6 @@ static char const *MEOSN_VIDEOSETUP_RESOLUTION[MAXVALIDMODES];
 static MenuOptionSet_t MEOS_VIDEOSETUP_RESOLUTION = MAKE_MENUOPTIONSETDYN( MEOSN_VIDEOSETUP_RESOLUTION, NULL, 0, 0x0 );
 static MenuOption_t MEO_VIDEOSETUP_RESOLUTION = MAKE_MENUOPTION( &MF_Redfont, &MEOS_VIDEOSETUP_RESOLUTION, &newresolution );
 static MenuEntry_t ME_VIDEOSETUP_RESOLUTION = MAKE_MENUENTRY( "Resolution:", &MF_Redfont, &MEF_BigOptionsRt, &MEO_VIDEOSETUP_RESOLUTION, Option );
-
-
-static char const* MEOSN_VIDEOSETUP_DISPLAY[8];
-static MenuOptionSet_t MEOS_VIDEOSETUP_DISPLAY = MAKE_MENUOPTIONSETDYN(MEOSN_VIDEOSETUP_DISPLAY, NULL, 0, 0x0);
-static MenuOption_t MEO_VIDEOSETUP_DISPLAY = MAKE_MENUOPTION(&MF_Redfont, &MEOS_VIDEOSETUP_DISPLAY, &newdisplayindex);
-static MenuEntry_t ME_VIDEOSETUP_DISPLAY = MAKE_MENUENTRY("Display:", &MF_Redfont, &MEF_BigOptionsRt, &MEO_VIDEOSETUP_DISPLAY, Option);
-
 
 #ifdef USE_OPENGL
 #ifdef POLYMER
@@ -592,14 +578,14 @@ static MenuEntry_t ME_VIDEOSETUP_VSYNC = MAKE_MENUENTRY("VSync:", &MF_Redfont, &
 
 
 
-#if 1
-static char const *MEOSN_VIDEOSETUP_FRAMELIMIT [] = { "None", "30 fps", "58 fps", "59 fps", "60 fps", "61 fps", "72 fps", "73 fps", "74 fps", "75 fps", "83 fps", "84 fps", "85 fps", "100 fps", "118 fps", "119 fps", "120 fps", "142 fps", "143 fps", "144 fps", "163 fps", "164 fps", "165 fps", "238 fps", "239 fps", "240 fps" };
-static int32_t MEOSV_VIDEOSETUP_FRAMELIMIT [] = { 0, 30, 58, 59, 60, 61, 72, 73, 74, 75, 83, 84, 85, 100, 118, 119, 120, 142, 143, 144, 163, 164, 165, 238, 239, 240 };
+#if 0
+static char const *MEOSN_VIDEOSETUP_FRAMELIMIT [] = { "Auto", "None", "30 fps", "60 fps", "75 fps", "100 fps", "120 fps", "144 fps", "165 fps", "240 fps" };
+static int32_t MEOSV_VIDEOSETUP_FRAMELIMIT [] = { -1, 0, 30, 60, 75, 100, 120, 144, 165, 240 };
 static MenuOptionSet_t MEOS_VIDEOSETUP_FRAMELIMIT = MAKE_MENUOPTIONSET(MEOSN_VIDEOSETUP_FRAMELIMIT, MEOSV_VIDEOSETUP_FRAMELIMIT, 0x0);
-static MenuOption_t MEO_VIDEOSETUP_FRAMELIMIT= MAKE_MENUOPTION(&MF_Redfont, &MEOS_VIDEOSETUP_FRAMELIMIT, &newmaxfps);
+static MenuOption_t MEO_VIDEOSETUP_FRAMELIMIT= MAKE_MENUOPTION(&MF_Redfont, &MEOS_VIDEOSETUP_FRAMELIMIT, &r_maxfps);
 static MenuEntry_t ME_VIDEOSETUP_FRAMELIMIT = MAKE_MENUENTRY("Framerate limit:", &MF_Redfont, &MEF_BigOptionsRt, &MEO_VIDEOSETUP_FRAMELIMIT, Option);
 #else
-static MenuRangeInt32_t MEO_VIDEOSETUP_FRAMELIMIT = MAKE_MENURANGE( &newmaxfps, &MF_Redfont, 0, 240, 3, 81, DisplayTypeInteger );
+static MenuRangeInt32_t MEO_VIDEOSETUP_FRAMELIMIT = MAKE_MENURANGE( &newmaxfps, &MF_Redfont, -1, 240, 6, 40, DisplayTypeInteger );
 static MenuEntry_t ME_VIDEOSETUP_FRAMELIMIT = MAKE_MENUENTRY( "FPS limit:", &MF_Redfont, &MEF_BigOptionsRt, &MEO_VIDEOSETUP_FRAMELIMIT, RangeInt32 );
 #endif
 
@@ -797,7 +783,6 @@ static MenuEntry_t *MEL_VIDEOSETUP[] = {
 #ifdef USE_OPENGL
     &ME_VIDEOSETUP_RENDERER,
 #endif
-    &ME_VIDEOSETUP_DISPLAY,
     &ME_VIDEOSETUP_FULLSCREEN,
     &ME_VIDEOSETUP_BORDERLESS,
     &ME_VIDEOSETUP_VSYNC,
@@ -1507,7 +1492,6 @@ static MenuMenu_t M_EPISODE = MAKE_MENUMENU( "Select An Episode", &MMF_Top_Episo
 static MenuMenu_t M_SKILL = MAKE_MENUMENU( "Select Skill", &MMF_Top_Skill, MEL_SKILL );
 static MenuMenu_t M_NEWGAMECUSTOM = MAKE_MENUMENU( s_NewGame, &MMF_Top_NewGameCustom, MEL_NEWGAMECUSTOM );
 static MenuMenu_t M_NEWGAMECUSTOMSUB = MAKE_MENUMENU( s_NewGame, &MMF_Top_NewGameCustomSub, MEL_NEWGAMECUSTOMSUB );
-static MenuMenu_t M_NEWGAMECUSTOML3 = MAKE_MENUMENU( s_NewGame, &MMF_Top_NewGameCustomL3, MEL_NEWGAMECUSTOML3 );
 #ifndef EDUKE32_RETAIL_MENU
 static MenuMenu_t M_GAMESETUP = MAKE_MENUMENU( "Game Setup", &MMF_BigOptions, MEL_GAMESETUP );
 #endif
@@ -1610,7 +1594,6 @@ static Menu_t Menus[] = {
     { &M_USERMAP, MENU_USERMAP, MENU_EPISODE, MA_Return, FileSelect },
     { &M_NEWGAMECUSTOM, MENU_NEWGAMECUSTOM, MENU_MAIN, MA_Return, Menu },
     { &M_NEWGAMECUSTOMSUB, MENU_NEWGAMECUSTOMSUB, MENU_NEWGAMECUSTOM, MA_Return, Menu },
-    { &M_NEWGAMECUSTOML3, MENU_NEWGAMECUSTOML3, MENU_NEWGAMECUSTOMSUB, MA_Return, Menu },
     { &M_SKILL, MENU_SKILL, MENU_PREVIOUS, MA_Return, Menu },
 #ifndef EDUKE32_RETAIL_MENU
     { &M_GAMESETUP, MENU_GAMESETUP, MENU_OPTIONS, MA_Return, Menu },
@@ -1642,8 +1625,8 @@ static Menu_t Menus[] = {
 #ifdef POLYMER
     { &M_RENDERERSETUP_POLYMER, MENU_POLYMER, MENU_DISPLAYSETUP, MA_Return, Menu },
 #endif
-    { &M_LOAD, MENU_LOAD, MENU_MAIN, MA_Return, List },
-    { &M_SAVE, MENU_SAVE, MENU_MAIN, MA_Return, List },
+    { &M_LOAD, MENU_LOAD, MENU_MAIN, MA_Return, Menu },
+    { &M_SAVE, MENU_SAVE, MENU_MAIN, MA_Return, Menu },
     { &M_STORY, MENU_STORY, MENU_MAIN, MA_Return, Panel },
     { &M_F1HELP, MENU_F1HELP, MENU_MAIN, MA_Return, Panel },
     { &M_QUIT, MENU_QUIT, MENU_PREVIOUS, MA_Return, Verify },
@@ -1765,8 +1748,9 @@ void Menu_PopulateNewGameCustom(void)
 
     int e = 0;
     int visible = 0;
-    for (MenuGameplayEntry const & entry : g_MenuGameplayEntries)
+    for (MenuGameplayStemEntry const & stem : g_MenuGameplayEntries)
     {
+        MenuGameplayEntry const & entry = stem.entry;
         if (!entry.isValid())
             break;
 
@@ -1786,7 +1770,8 @@ void Menu_PopulateNewGameCustomSub(int e)
     if ((unsigned)e >= MAXMENUGAMEPLAYENTRIES)
         return;
 
-    MenuGameplayEntry const & entry = g_MenuGameplayEntries[e];
+    MenuGameplayStemEntry const & stem = g_MenuGameplayEntries[e];
+    MenuGameplayEntry const & entry = stem.entry;
     if (!entry.isValid())
         return;
 
@@ -1794,9 +1779,8 @@ void Menu_PopulateNewGameCustomSub(int e)
 
     int s = 0;
     int visible = 0;
-    for (int i = 0; i < MAXMENUGAMEPLAYENTRIES; i++)
+    for (MenuGameplayEntry const & subentry : stem.subentries)
     {
-        MenuGameplayEntry const & subentry  = entry.subentries[i];
         if (!subentry.isValid())
             break;
 
@@ -1809,41 +1793,6 @@ void Menu_PopulateNewGameCustomSub(int e)
     }
     M_NEWGAMECUSTOMSUB.numEntries = s;
     MMF_Top_NewGameCustomSub.pos.y = (58 + (3-visible)*6)<<16;
-}
-
-void Menu_PopulateNewGameCustomL3(int e, int s)
-{
-    if ((unsigned)e >= MAXMENUGAMEPLAYENTRIES || (unsigned)s >= MAXMENUGAMEPLAYENTRIES)
-        return;
-
-    MenuGameplayEntry const & entryl1 = g_MenuGameplayEntries[e];
-    if (!entryl1.isValid())
-        return;
-
-    MenuGameplayEntry const & entryl2 = entryl1.subentries[s];
-    if (!entryl2.isValid())
-        return;
-
-    M_NEWGAMECUSTOML3.title = entryl2.name;
-
-    int t = 0;
-    int visible = 0;
-    for (int i = 0; i < MAXMENUGAMEPLAYENTRIES; i++)
-    {
-        MenuGameplayEntry const & entryl3  = entryl2.subentries[i];
-
-        if (!entryl3.isValid())
-            break;
-
-        MEL_NEWGAMECUSTOML3[t] = &ME_NEWGAMECUSTOML3ENTRIES[e][s][t];
-
-        if (!(MEL_NEWGAMECUSTOML3[t]->flags & MEF_Hidden))
-            ++visible;
-
-        ++t;
-    }
-    M_NEWGAMECUSTOML3.numEntries = t;
-    MMF_Top_NewGameCustomL3.pos.y = (58 + (3-visible)*6)<<16;
 }
 
 static void Menu_PopulateJoystick(void)
@@ -2007,86 +1956,56 @@ void Menu_Init(void)
     M_EPISODE.currentEntry = ud.default_volume;
 
     // prepare new game custom :O
-    if (g_MenuGameplayEntries[0].isValid())
+    if (g_MenuGameplayEntries[0].entry.isValid())
     {
         MEO_MAIN_NEWGAME.linkID = M_NEWVERIFY.linkID = MENU_NEWGAMECUSTOM;
 
-        int l1 = 0;
-        for (MenuGameplayEntry const & l1entry : g_MenuGameplayEntries)
+        int e = 0;
+        for (MenuGameplayStemEntry const & stem : g_MenuGameplayEntries)
         {
-            if (!l1entry.isValid())
+            MenuGameplayEntry const & entry = stem.entry;
+            if (!entry.isValid())
                 break;
 
-            MenuEntry_t & l1_me = ME_NEWGAMECUSTOMENTRIES[l1];
-            l1_me = ME_EPISODE_TEMPLATE;
-            MenuLink_t & l1_meo = MEO_NEWGAMECUSTOM[l1];
-            l1_meo = MEO_NEWGAMECUSTOM_TEMPLATE;
-            l1_me.entry = &l1_meo;
+            MenuEntry_t & e_me = ME_NEWGAMECUSTOMENTRIES[e];
+            e_me = ME_EPISODE_TEMPLATE;
+            MenuLink_t & e_meo = MEO_NEWGAMECUSTOM[e];
+            e_meo = MEO_NEWGAMECUSTOM_TEMPLATE;
+            e_me.entry = &e_meo;
 
-            l1_me.name = l1entry.name;
-            if (l1entry.flags & MGE_Locked)
-                l1_me.flags |= MEF_Disabled;
-            if (l1entry.flags & MGE_Hidden)
-                l1_me.flags |= MEF_Hidden;
+            e_me.name = entry.name;
+            if (entry.flags & MGE_Locked)
+                e_me.flags |= MEF_Disabled;
+            if (entry.flags & MGE_Hidden)
+                e_me.flags |= MEF_Hidden;
 
-            int l2 = 0;
-            for (int i = 0; i < MAXMENUGAMEPLAYENTRIES; i++)
+            int s = 0;
+            for (MenuGameplayEntry const & subentry : stem.subentries)
             {
-                MenuGameplayEntry const & l2entry  = l1entry.subentries[i];
-                if (!l2entry.isValid())
+                if (!subentry.isValid())
                     break;
 
-                MenuEntry_t & l2_me = ME_NEWGAMECUSTOMSUBENTRIES[l1][l2];
-                l2_me = ME_EPISODE_TEMPLATE;
-                MenuLink_t & l2_meo = MEO_NEWGAMECUSTOMSUB[l1][l2];
-                l2_meo = MEO_NEWGAMECUSTOMSUB_TEMPLATE;
-                l2_me.entry = &l2_meo;
+                MenuEntry_t & s_me = ME_NEWGAMECUSTOMSUBENTRIES[e][s];
+                s_me = ME_EPISODE_TEMPLATE;
+                MenuLink_t & s_meo = MEO_NEWGAMECUSTOMSUB[e][s];
+                s_meo = MEO_NEWGAMECUSTOMSUB_TEMPLATE;
+                s_me.entry = &s_meo;
 
-                l2_me.name = l2entry.name;
-                if (l2entry.flags & MGE_Locked)
-                    l2_me.flags |= MEF_Disabled;
-                if (l2entry.flags & MGE_Hidden)
-                    l2_me.flags |= MEF_Hidden;
+                s_me.name = subentry.name;
+                if (subentry.flags & MGE_Locked)
+                    s_me.flags |= MEF_Disabled;
+                if (subentry.flags & MGE_Hidden)
+                    s_me.flags |= MEF_Hidden;
 
-                int l3 = 0;
-                for (int j = 0; j < MAXMENUGAMEPLAYENTRIES; j++)
-                {
-                    MenuGameplayEntry const & l3entry  = l2entry.subentries[j];
-
-                    if (!l3entry.isValid())
-                        break;
-
-                    MenuEntry_t & l3_me = ME_NEWGAMECUSTOML3ENTRIES[l1][l2][l3];
-                    l3_me = ME_EPISODE_TEMPLATE;
-                    MenuLink_t & l3_meo = MEO_NEWGAMECUSTOML3[l1][l2][l3];
-                    l3_meo = MEO_NEWGAMECUSTOML3_TEMPLATE;
-                    l3_me.entry = &l3_meo;
-
-                    l3_me.name = l3entry.name;
-                    if (l3entry.flags & MGE_Locked)
-                        l3_me.flags |= MEF_Disabled;
-                    if (l3entry.flags & MGE_Hidden)
-                        l3_me.flags |= MEF_Hidden;
-
-                    if (l3entry.flags & MGE_UserContent)
-                        l3_meo.linkID = MENU_USERMAP;
-
-                    ++l3;
-                }
-                if (l2entry.flags & MGE_UserContent)
-                    l2_meo.linkID = MENU_USERMAP;
-                else if (l3 == 0)
-                    l2_meo.linkID = MENU_SKILL;
-
-                ++l2;
+                ++s;
             }
 
-            if (l1entry.flags & MGE_UserContent)
-                l1_meo.linkID = MENU_USERMAP;
-            else if (l2 == 0)
-                l1_meo.linkID = MENU_SKILL;
+            if (entry.flags & MGE_UserContent)
+                e_meo.linkID = MENU_USERMAP;
+            else if (s == 0)
+                e_meo.linkID = MENU_SKILL;
 
-            ++l1;
+            ++e;
         }
     }
 
@@ -2270,104 +2189,6 @@ static void Menu_Run(Menu_t *cm, vec2_t origin);
 
 static void Menu_BlackRectangle(int32_t x, int32_t y, int32_t width, int32_t height, int32_t orientation);
 
-static void Menu_PopulateVideoSetup()
-{
-    vec2_t res = { xres, yres };
-    static int displayindex;
-
-    if (displayindex != newdisplayindex)
-    {
-        videoResetMode();
-        videoGetModes(newdisplayindex);
-        displayindex = newdisplayindex;
-
-        //if (newresolution != -1)
-        //    res = { resolution[0].xdim, resolution[0].ydim };
-
-        if (displayindex != r_displayindex)
-            newresolution = 0;
-        else
-            newresolution = -1;
-    }
-
-    Bmemset(resolution, 0, sizeof(resolution));
-    MEOS_VIDEOSETUP_RESOLUTION.numOptions = 0;
-
-    // prepare video setup
-    for (int i = 0; i < validmodecnt; ++i)
-    {
-        int j;
-
-        for (j = 0; j < MEOS_VIDEOSETUP_RESOLUTION.numOptions; ++j)
-        {
-            if (validmode[i].xdim == resolution[j].xdim && validmode[i].ydim == resolution[j].ydim)
-            {
-                resolution[j].flags |= validmode[i].fs ? RES_FS : RES_WIN;
-                Bsnprintf(resolution[j].name, MAXRESOLUTIONSTRINGLENGTH, "%d x %d%s", resolution[j].xdim, resolution[j].ydim, (resolution[j].flags & RES_FS) ? "" : "Win");
-                MEOSN_VIDEOSETUP_RESOLUTION[j] = resolution[j].name;
-                if (validmode[i].bpp > resolution[j].bppmax)
-                    resolution[j].bppmax = validmode[i].bpp;
-                break;
-            }
-        }
-
-        if (j == MEOS_VIDEOSETUP_RESOLUTION.numOptions) // no match found
-        {
-            resolution[j].xdim = validmode[i].xdim;
-            resolution[j].ydim = validmode[i].ydim;
-            resolution[j].bppmax = validmode[i].bpp;
-            resolution[j].flags = validmode[i].fs ? RES_FS : RES_WIN;
-            Bsnprintf(resolution[j].name, MAXRESOLUTIONSTRINGLENGTH, "%d x %d%s", resolution[j].xdim, resolution[j].ydim, (resolution[j].flags & RES_FS) ? "" : "Win");
-            MEOSN_VIDEOSETUP_RESOLUTION[j] = resolution[j].name;
-            ++MEOS_VIDEOSETUP_RESOLUTION.numOptions;
-        }
-    }
-
-    if (newresolution == -1)
-    {
-        newresolution = 0;
-
-        for (int i = 0; i < MAXVALIDMODES; ++i)
-        {
-            if (resolution[i].xdim == res.x && resolution[i].ydim == res.y)
-            {
-                newresolution = i;
-                break;
-            }
-        }
-    }
-
-    const int32_t nr = newresolution;
-
-    if (newfullscreen && !(resolution[nr].flags & RES_FS))
-        newfullscreen = 0;
-
-    // don't allow setting fullscreen mode if it's not supported by the resolution
-    MenuEntry_DisableOnCondition(&ME_VIDEOSETUP_FULLSCREEN, !(resolution[nr].flags & RES_FS));
-
-    MEOS_VIDEOSETUP_DISPLAY.numOptions = 0;
-
-    // prepare video setup
-
-    static char* displayNames[ARRAY_SIZE(MEOSN_VIDEOSETUP_DISPLAY)] = {};
-    for (int i = 0; i < g_numdisplays; ++i)
-    {
-        if (displayNames[i] == nullptr)
-            displayNames[i] = (char *)Xmalloc(32);
-        Bsnprintf(displayNames[i], 32, "%d:%s", i, videoGetDisplayName(i));
-        MEOSN_VIDEOSETUP_DISPLAY[i] = displayNames[i];
-        ++MEOS_VIDEOSETUP_DISPLAY.numOptions;
-    }
-
-    MenuEntry_DisableOnCondition(&ME_VIDEOSETUP_APPLY,
-        (xres == resolution[nr].xdim && yres == resolution[nr].ydim &&
-            videoGetRenderMode() == newrendermode && fullscreen == newfullscreen
-            && vsync == newvsync && r_borderless == newborderless && r_maxfps == newmaxfps && r_displayindex == newdisplayindex
-            )
-        || (newrendermode != REND_CLASSIC && resolution[nr].bppmax <= 8));
-    MenuEntry_DisableOnCondition(&ME_VIDEOSETUP_BORDERLESS, newfullscreen);
-}
-
 /*
 At present, no true difference is planned between Menu_Pre() and Menu_PreDraw().
 They are separate for purposes of organization.
@@ -2474,7 +2295,65 @@ static void Menu_Pre(MenuID_t cm)
 
     case MENU_VIDEOSETUP:
     {
-        Menu_PopulateVideoSetup();
+        Bmemset(resolution, 0, sizeof(resolution));
+        MEOS_VIDEOSETUP_RESOLUTION.numOptions = 0;
+
+        // prepare video setup
+        for (int i = 0; i < validmodecnt; ++i)
+        {
+            int j;
+
+            for (j = 0; j < MEOS_VIDEOSETUP_RESOLUTION.numOptions; ++j)
+            {
+                if (validmode[i].xdim == resolution[j].xdim && validmode[i].ydim == resolution[j].ydim)
+                {
+                    resolution[j].flags |= validmode[i].fs ? RES_FS : RES_WIN;
+                    Bsnprintf(resolution[j].name, MAXRESOLUTIONSTRINGLENGTH, "%d x %d%s", resolution[j].xdim, resolution[j].ydim, (resolution[j].flags & RES_FS) ? "" : "Win");
+                    MEOSN_VIDEOSETUP_RESOLUTION[j] = resolution[j].name;
+                    if (validmode[i].bpp > resolution[j].bppmax)
+                        resolution[j].bppmax = validmode[i].bpp;
+                    break;
+                }
+            }
+
+            if (j == MEOS_VIDEOSETUP_RESOLUTION.numOptions) // no match found
+            {
+                resolution[j].xdim = validmode[i].xdim;
+                resolution[j].ydim = validmode[i].ydim;
+                resolution[j].bppmax = validmode[i].bpp;
+                resolution[j].flags = validmode[i].fs ? RES_FS : RES_WIN;
+                Bsnprintf(resolution[j].name, MAXRESOLUTIONSTRINGLENGTH, "%d x %d%s", resolution[j].xdim, resolution[j].ydim, (resolution[j].flags & RES_FS) ? "" : "Win");
+                MEOSN_VIDEOSETUP_RESOLUTION[j] = resolution[j].name;
+                ++MEOS_VIDEOSETUP_RESOLUTION.numOptions;
+            }
+        }
+
+        if (newresolution == -1)
+        {
+            newresolution = 0;
+
+            for (int i = 0; i < MAXVALIDMODES; ++i)
+            {
+                if (resolution[i].xdim == xres && resolution[i].ydim == yres)
+                {
+                    newresolution = i;
+                    break;
+                }
+            }
+        }
+
+        const int32_t nr = newresolution;
+
+        // don't allow setting fullscreen mode if it's not supported by the resolution
+        MenuEntry_DisableOnCondition(&ME_VIDEOSETUP_FULLSCREEN, !(resolution[nr].flags & RES_FS));
+
+        MenuEntry_DisableOnCondition(&ME_VIDEOSETUP_APPLY,
+             (xres == resolution[nr].xdim && yres == resolution[nr].ydim &&
+              videoGetRenderMode() == newrendermode && fullscreen == newfullscreen
+              && vsync == newvsync && r_borderless == newborderless && r_maxfps == newmaxfps
+             )
+             || (newrendermode != REND_CLASSIC && resolution[nr].bppmax <= 8));
+        MenuEntry_DisableOnCondition(&ME_VIDEOSETUP_BORDERLESS, newfullscreen);
         break;
     }
 
@@ -2651,10 +2530,6 @@ static void Menu_Pre(MenuID_t cm)
         ud.m_newgamecustomsub = M_NEWGAMECUSTOMSUB.currentEntry;
         break;
 
-    case MENU_NEWGAMECUSTOML3:
-        ud.m_newgamecustoml3 = M_NEWGAMECUSTOML3.currentEntry;
-        break;
-
     default:
         break;
     }
@@ -2706,52 +2581,7 @@ static void Menu_DrawVerifyPrompt(int32_t x, int32_t y, const char * text, int n
 #endif
 }
 
-static void msaveloadtext(const vec2_t& origin, int level, int volume, int skill, const char *boardfn, int16_t health)
-{
-    int const xoffset  = 22;
-    int const xoffset2 = FURY ? 56 : 72;
-    int yoffset = 150 + ((!!FURY)<<1);
-
-    auto name = g_mapInfo[(volume * MAXLEVELS) + level].name;
-    auto vname = g_volumeNames[volume];
-    
-    Menu_BlackRectangle(origin.x + ((xoffset-2)<<16), origin.y + ((yoffset-2)<<16), 178<<16, (34-((!!FURY)<<1))<<16, 1);
-
-    if (vname)
-    {
-        mminitext(origin.x + (xoffset << 16), origin.y + (yoffset << 16), "Episode:", MF_Minifont.pal_deselected_right);
-        mminitext(origin.x + (xoffset2 << 16), origin.y + (yoffset << 16), localeLookup(vname), MF_Minifont.pal_selected_right);
-        yoffset += 8;
-    }
-
-    if (savehead.volnum == 0 && savehead.levnum == 7)
-    {
-        mminitext(origin.x + (xoffset << 16), origin.y + (yoffset << 16), "User map:", MF_Minifont.pal_deselected_right);
-        // I'm sorry
-        if (boardfn[0] == '/') boardfn++;
-        mminitext(origin.x + (xoffset2 << 16), origin.y + (yoffset << 16), boardfn, MF_Minifont.pal_selected_right);
-        yoffset += 8;
-    }
-    else if (name)
-    {
-        mminitext(origin.x + (xoffset << 16), origin.y + (yoffset << 16), "Level:", MF_Minifont.pal_deselected_right);
-        mminitext(origin.x + (xoffset2 << 16), origin.y + (yoffset << 16), localeLookup(name), MF_Minifont.pal_selected_right);
-        yoffset += 8;
-    }
-    
-    mminitext(origin.x + (xoffset << 16), origin.y + (yoffset << 16), "Difficulty:", MF_Minifont.pal_deselected_right);
-    mminitext(origin.x + (xoffset2 << 16), origin.y + (yoffset << 16), localeLookup(g_skillNames[skill-1]), MF_Minifont.pal_selected_right);
-    yoffset += 8;
-
-    if (savehead.health && (unsigned)savehead.health <= (unsigned)g_maxPlayerHealth)
-    {
-        mminitext(origin.x + (xoffset << 16), origin.y + (yoffset << 16), "Health:", MF_Minifont.pal_deselected_right);
-        Bsprintf(tempbuf, "%dhp", health);
-        mminitext(origin.x + (xoffset2 << 16), origin.y + (yoffset << 16), tempbuf, MF_Minifont.pal_selected_right);
-    }
-}
-
-static void Menu_PreDraw(MenuID_t cm, MenuEntry_t* entry, const vec2_t origin)
+static void Menu_PreDraw(MenuID_t cm, MenuEntry_t *entry, const vec2_t origin)
 {
     int32_t i, j, l = 0;
 
@@ -2849,7 +2679,7 @@ static void Menu_PreDraw(MenuID_t cm, MenuEntry_t* entry, const vec2_t origin)
         for (i = 0; i <= 108; i += 12)
             rotatesprite_fs(origin.x + ((160+64+91-64)<<16), origin.y + ((i+56)<<16), 65536L,0,TEXTBOX,24,0,10);
 #endif
-        Menu_BlackRectangle(origin.x + (198<<16), origin.y + (47<<16), 102<<16, 135<<16, 1);
+        Menu_BlackRectangle(origin.x + (198<<16), origin.y + (47<<16), 102<<16, 100<<16, 1|32);
 
         rotatesprite_fs(origin.x + (22<<16), origin.y + (97<<16), 65536L,0,WINDOWBORDER2,24,0,10);
         rotatesprite_fs(origin.x + (180<<16), origin.y + (97<<16), 65536L,1024,WINDOWBORDER2,24,0,10);
@@ -2871,16 +2701,16 @@ static void Menu_PreDraw(MenuID_t cm, MenuEntry_t* entry, const vec2_t origin)
 
             if (msv.isOldVer)
             {
-                mgametextcenterat(origin.x + (101<<16), origin.y + (64<<16),
-                    msv.brief.isExt ? "Previous Version,\nCheckpoint Available" : "Incompatible Save\n");
+                mgametextcenterat(origin.x + (101<<16), origin.y + (50<<16),
+                    msv.brief.isExt ? "Previous Version,\nSequence Point Available" : "Previous Version,\nUnable to Load");
 
 #ifndef EDUKE32_RETAIL_MENU
-                Bsprintf(tempbuf,"Need: %d.%d.%d.%u %d-bit, %s", savehead.majorver, savehead.minorver,
-                         savehead.bytever, savehead.userbytever, 8*savehead.getPtrSize(), savehead.scriptname);
-                mminitext(origin.x + (23<<16), origin.y + (124<<16), tempbuf, MF_Minifont.pal_selected);
-                Bsprintf(tempbuf,"Have: %d.%d.%d.%u %d-bit, %s", SV_MAJOR_VER, SV_MINOR_VER, BYTEVERSION,
-                         ud.userbytever, (int32_t)(8*sizeof(intptr_t)), g_scriptFileName);
-                mminitext(origin.x + (23<<16), origin.y + (132<<16), tempbuf, MF_Minifont.pal_selected);
+                Bsprintf(tempbuf,"Saved: %d.%d.%d.%u %d-bit", savehead.majorver, savehead.minorver,
+                         savehead.bytever, savehead.userbytever, 8*savehead.getPtrSize());
+                mgametext(origin.x + (25<<16), origin.y + (124<<16), tempbuf);
+                Bsprintf(tempbuf,"Our: %d.%d.%d.%u %d-bit", SV_MAJOR_VER, SV_MINOR_VER, BYTEVERSION,
+                         ud.userbytever, (int32_t)(8*sizeof(intptr_t)));
+                mgametext(origin.x + ((25+16)<<16), origin.y + (134<<16), tempbuf);
 #endif
 
                 if (msv.isUnreadable)
@@ -2893,10 +2723,15 @@ static void Menu_PreDraw(MenuID_t cm, MenuEntry_t* entry, const vec2_t origin)
                 mgametextcenter(origin.x, origin.y + (156<<16), tempbuf);
             }
 
-            if (msv.isOldVer && !msv.brief.isExt)
-                break;
+            {
+                const char *name = g_mapInfo[(savehead.volnum*MAXLEVELS) + savehead.levnum].name;
+                const char *skill = g_skillNames[savehead.skill-1];
+                Bsprintf(tempbuf, "%s / %s", name ? localeLookup(name) : "^10unnamed^0", localeLookup(skill));
+            }
 
-            msaveloadtext(origin, savehead.levnum, savehead.volnum, savehead.skill, savehead.boardfn, savehead.health);
+            mgametextcenter(origin.x, origin.y + (168<<16), tempbuf);
+            if (savehead.volnum == 0 && savehead.levnum == 7)
+                mgametextcenter(origin.x, origin.y + (180<<16), savehead.boardfn);
         }
         break;
     }
@@ -2907,7 +2742,7 @@ static void Menu_PreDraw(MenuID_t cm, MenuEntry_t* entry, const vec2_t origin)
         for (i = 0; i <= 108; i += 12)
             rotatesprite_fs(origin.x + ((160+64+91-64)<<16), origin.y + ((i+56)<<16), 65536L,0,TEXTBOX,24,0,10);
 #endif
-        Menu_BlackRectangle(origin.x + (198<<16), origin.y + (47<<16), 102<<16, 135<<16, 1);
+        Menu_BlackRectangle(origin.x + (198<<16), origin.y + (47<<16), 102<<16, 100<<16, 1|32);
 
         rotatesprite_fs(origin.x + (22<<16), origin.y + (97<<16), 65536L,0,WINDOWBORDER2,24,0,10);
         rotatesprite_fs(origin.x + (180<<16), origin.y + (97<<16), 65536L,1024,WINDOWBORDER2,24,0,10);
@@ -2949,14 +2784,16 @@ static void Menu_PreDraw(MenuID_t cm, MenuEntry_t* entry, const vec2_t origin)
         else
             menutext_centeralign(origin.x + (101<<16), origin.y + (97<<16), "New");
 
-        //if (ud.multimode > 1)
-        //{
-        //    Bsprintf(tempbuf, "Players: %-2d                      ", ud.multimode);
-        //    mgametextcenter(origin.x, origin.y + (156<<16), tempbuf);
-        //}
+        if (ud.multimode > 1)
+        {
+            Bsprintf(tempbuf, "Players: %-2d                      ", ud.multimode);
+            mgametextcenter(origin.x, origin.y + (156<<16), tempbuf);
+        }
 
-        msaveloadtext(origin, ud.level_number, ud.volume_number, ud.player_skill,
-                              currentboardfilename, sprite[g_player[myconnectindex].ps->i].extra);
+        Bsprintf(tempbuf,"%s / %s",g_mapInfo[(ud.volume_number*MAXLEVELS) + ud.level_number].name, g_skillNames[ud.player_skill-1]);
+        mgametextcenter(origin.x, origin.y + (168<<16), tempbuf);
+        if (ud.volume_number == 0 && ud.level_number == 7)
+            mgametextcenter(origin.x, origin.y + (180<<16), currentboardfilename);
         break;
     }
 
@@ -3630,13 +3467,6 @@ static void Menu_EntryLinkActivate(MenuEntry_t *entry)
         VM_OnEventWithReturn(EVENT_NEWGAMECUSTOM, -1, myconnectindex, M_NEWGAMECUSTOM.currentEntry);
         break;
 
-    case MENU_NEWGAMECUSTOML3:
-        ud.returnvar[0] = M_NEWGAMECUSTOMSUB.currentEntry;
-        ud.returnvar[1] = M_NEWGAMECUSTOML3.currentEntry;
-        ud.returnvar[2] = -1;
-        VM_OnEventWithReturn(EVENT_NEWGAMECUSTOM, -1, myconnectindex, M_NEWGAMECUSTOM.currentEntry);
-        break;
-
     case MENU_SKILL:
     {
         int32_t skillsound = PISTOL_BODYHIT;
@@ -3721,7 +3551,6 @@ static void Menu_EntryLinkActivate(MenuEntry_t *entry)
         if (r_borderless != newborderless)
             videoResetMode();
 
-        r_displayindex = newdisplayindex;
         r_borderless = newborderless;
 
         if (videoSetGameMode(n.flags, n.xdim, n.ydim, n.bppmax, upscalefactor) < 0)
@@ -3746,7 +3575,7 @@ static void Menu_EntryLinkActivate(MenuEntry_t *entry)
             onvideomodechange(n.bppmax > 8);
         }
 
-        newmaxfps = r_maxfps = newmaxfps > 0 ? clamp(newmaxfps, 30, 1000) : newmaxfps;
+        r_maxfps = newmaxfps > 0 ? clamp(newmaxfps, 30, 1000) : newmaxfps;
         g_frameDelay = calcFrameDelay(r_maxfps);
         g_restorePalette = -1;
         G_UpdateScreenArea();
@@ -3760,7 +3589,7 @@ static void Menu_EntryLinkActivate(MenuEntry_t *entry)
         songposition pos = {};
 
         if (MusicIsWaveform)
-            MV_GetPosition(MusicVoice, (int *)&pos.tick);
+            FX_GetPosition(MusicVoice, (int *)&pos.tick);
         else
             MUSIC_GetSongPosition(&pos);
 
@@ -3809,7 +3638,7 @@ static void Menu_EntryLinkActivate(MenuEntry_t *entry)
             S_RestartMusic();
 
             if (MusicIsWaveform)
-                MV_SetPosition(MusicVoice, (int)pos.tick);
+                FX_SetPosition(MusicVoice, (int)pos.tick);
             else
                 MUSIC_SetSongPosition(pos.measure, pos.beat, pos.tick);
         }
@@ -4714,7 +4543,7 @@ void Menu_AnimateChange(int32_t cm, MenuAnimationType_t animtype)
 
 static void Menu_MaybeSetSelectionToChild(Menu_t * m, MenuID_t id)
 {
-    if (m->type == Menu || m->type == List)
+    if (m->type == Menu)
     {
         auto  menu = (MenuMenu_t *)m->object;
 
@@ -4839,10 +4668,6 @@ static void Menu_AboutToStartDisplaying(Menu_t * m)
         Menu_PopulateNewGameCustomSub(M_NEWGAMECUSTOM.currentEntry);
         break;
 
-    case MENU_NEWGAMECUSTOML3:
-        Menu_PopulateNewGameCustomL3(M_NEWGAMECUSTOM.currentEntry, M_NEWGAMECUSTOMSUB.currentEntry);
-        break;
-
     case MENU_LOAD:
         if (FURY)
             M_LOAD.title = (g_player[myconnectindex].ps->gm & MODE_GAME) ? s_LoadGame : s_Continue;
@@ -4934,7 +4759,6 @@ static void Menu_AboutToStartDisplaying(Menu_t * m)
         newvsync = vsync;
         newborderless = r_borderless;
         newmaxfps = r_maxfps;
-        newdisplayindex = r_displayindex;
         break;
 
 #ifndef EDUKE32_RETAIL_MENU
@@ -4977,7 +4801,6 @@ static void Menu_AboutToStartDisplaying(Menu_t * m)
         Menu_FileSelectInit((MenuFileSelect_t*)m->object);
         break;
     case Menu:
-    case List:
     {
         auto menu = (MenuMenu_t*)m->object;
         // MenuEntry_t* currentry = menu->entrylist[menu->currentEntry];
@@ -5137,7 +4960,6 @@ int32_t Menu_IsTextInput(Menu_t *cm)
         case TextForm:
         case FileSelect:
         case Message:
-        case List:
             return 1;
             break;
         case Panel:
@@ -5418,7 +5240,7 @@ static void Menu_RunScrollbar(Menu_t *cm, MenuMenuFormat_t const * const format,
             rotatesprite_fs(scrollx, scrollregionend, ud.menu_scrollbarz, 0, scrollTileBottom, 0, 0, 26);
         }
         else
-            Menu_BlackRectangle(scrollx, scrolly, scrollwidth, scrollheight, 1);
+            Menu_BlackRectangle(scrollx, scrolly, scrollwidth, scrollheight, 1|32);
 
         rotatesprite_fs(scrollx + ((scrollwidth>>17)<<16) - ((tilesiz[scrollTileCursor].x>>1)*ud.menu_scrollcursorz), scrollregionstart + scale(scrollregionheight, *scrollPos, scrollPosMax), ud.menu_scrollcursorz, 0, scrollTileCursor, 0, 0, 26);
 
@@ -6566,7 +6388,6 @@ static void Menu_Run(Menu_t *cm, const vec2_t origin)
         }
 
         case Menu:
-        case List:
         {
             Menu_ValidateSelectionIsActive(cm);
 
@@ -7210,14 +7031,13 @@ static void Menu_RunInput(Menu_t *cm)
 
                 S_PlaySound(KICK_HIT);
             }
-            else if (KB_KeyPressed(sc_PgUp) || MOUSE_GetButtons() & M_WHEELUP)
+            else if (KB_KeyPressed(sc_PgUp))
             {
                 int32_t i;
 
                 BUILDVFS_FIND_REC *seeker = object->findhigh[object->currentList];
 
                 KB_ClearKeyDown(sc_PgUp);
-                MOUSE_ClearButton(M_WHEELUP);
 
                 for (i = 0; i < 6; ++i)
                 {
@@ -7234,14 +7054,13 @@ static void Menu_RunInput(Menu_t *cm)
                     S_PlaySound(KICK_HIT);
                 }
             }
-            else if (KB_KeyPressed(sc_PgDn) || MOUSE_GetButtons() & M_WHEELDOWN)
+            else if (KB_KeyPressed(sc_PgDn))
             {
                 int32_t i;
 
                 BUILDVFS_FIND_REC *seeker = object->findhigh[object->currentList];
 
                 KB_ClearKeyDown(sc_PgDn);
-                MOUSE_ClearButton(M_WHEELDOWN);
 
                 for (i = 0; i < 6; ++i)
                 {
@@ -7378,7 +7197,6 @@ static void Menu_RunInput(Menu_t *cm)
             break;
 
         case Menu:
-        case List:
         {
             int32_t state;
 
@@ -7603,83 +7421,6 @@ static void Menu_RunInput(Menu_t *cm)
 
                     currentry = Menu_RunInput_Menu_Movement(menu, MM_Down);
                 }
-                else if (KB_KeyPressed(sc_PgUp) || MOUSE_GetButtons() & M_WHEELUP)
-                {
-                    if (cm->type != List)
-                        break;
-
-                    KB_ClearKeyDown(sc_PgUp);
-                    MOUSE_ClearButton(M_WHEELUP);
-
-                    menu->currentEntry -= 6;
-
-                    if (menu->currentEntry < 0)
-                        menu->currentEntry = 0;
-
-                    S_PlaySound(KICK_HIT);
-
-                    Menu_RunInput_Menu_MovementVerify(menu);
-                }
-                else if (KB_KeyPressed(sc_PgDn) || MOUSE_GetButtons() & M_WHEELDOWN)
-                {
-                    if (cm->type != List)
-                        break;
-
-                    KB_ClearKeyDown(sc_PgDn);
-                    MOUSE_ClearButton(M_WHEELDOWN);
-
-                    menu->currentEntry += 6;
-
-                    if (menu->currentEntry > menu->numEntries - 1)
-                        menu->currentEntry = menu->numEntries - 1;
-
-                    S_PlaySound(KICK_HIT);
-
-                    Menu_RunInput_Menu_MovementVerify(menu);
-                }
-                else if (KB_KeyWaiting() && KB_KeyPressed(KB_GetLastScanCode()))
-                {
-                    // this is fucking terrible, sorry
-                    char ch = KB_GetCh(), ch2 = KB_ScanCodeToString(KB_GetLastScanCode())[0];
-
-                    if (ch >= 'a')
-                        ch -= ('a' - 'A');
-
-                    if (ch2 != ch || ch <= 0 || ((ch < 'A' || ch > 'Z') && (ch < '0' || ch > '9')))
-                        break;
-
-                    int index = 0;
-                    auto seeker = menu->entrylist[menu->currentEntry];
-
-                    do
-                    {
-                        seeker = menu->entrylist[(index + menu->currentEntry) % menu->numEntries];
-
-                        if (!seeker->name)
-                            continue;
-
-                        ch2 = seeker->name[0];
-
-                        if (ch2 >= 'a' && ch2 <= 'z')
-                            ch2 -= ('a' - 'A');
-
-                        if (ch2 == ch && (index + menu->currentEntry) % menu->numEntries != menu->currentEntry)
-                            break;
-                    }
-                    while (++index < menu->numEntries);
-
-                    if ((index + menu->currentEntry) % menu->numEntries != menu->currentEntry)
-                    {
-                        menu->currentEntry = (index + menu->currentEntry) % menu->numEntries;
-
-                        KB_ClearKeysDown();
-                        KB_ClearLastScanCode();
-
-                        Menu_RunInput_Menu_MovementVerify(menu);
-
-                        S_PlaySound(KICK_HIT);
-                    }
-                }
 
                 if (currentry != NULL)
                     Menu_PreInput(currentry);
@@ -7762,34 +7503,6 @@ static void Menu_RunInput(Menu_t *cm)
 
                         Menu_RunInput_EntryOptionList_Movement(object, MM_Down);
                     }
-                    else if (KB_KeyPressed(sc_PgUp) || MOUSE_GetButtons() & M_WHEELUP)
-                    {
-                        KB_ClearKeyDown(sc_PgUp);
-                        MOUSE_ClearButton(M_WHEELUP);
-
-                        object->options->currentEntry -= 6;
-
-                        if (object->options->currentEntry < 0)
-                            object->options->currentEntry = 0;
-
-                        S_PlaySound(KICK_HIT);
-
-                        Menu_RunInput_EntryOptionList_MovementVerify(object);
-                    }
-                    else if (KB_KeyPressed(sc_PgDn) || MOUSE_GetButtons() & M_WHEELDOWN)
-                    {
-                        KB_ClearKeyDown(sc_PgDn);
-                        MOUSE_ClearButton(M_WHEELDOWN);
-
-                        object->options->currentEntry += 6;
-
-                        if (object->options->currentEntry > object->options->numOptions-1)
-                            object->options->currentEntry = object->options->numOptions-1;
-
-                        S_PlaySound(KICK_HIT);
-
-                        Menu_RunInput_EntryOptionList_MovementVerify(object);
-                    }
                 }
                 else if (currentry->type == Custom2Col)
                 {
@@ -7861,8 +7574,6 @@ void M_DisplayMenus(void)
             ud.returnvar[2] = ((MenuMenu_t *)m_parentMenu->object)->currentEntry;
             if (m_parentMenu->menuID == MENU_NEWGAMECUSTOMSUB)
                 ud.returnvar[3] = M_NEWGAMECUSTOM.currentEntry;
-            else if (m_parentMenu->menuID == MENU_NEWGAMECUSTOML3)
-                ud.returnvar[3] = M_NEWGAMECUSTOMSUB.currentEntry;
         }
         VM_OnEventWithReturn(EVENT_DISPLAYINACTIVEMENU, g_player[screenpeek].ps->i, screenpeek, m_parentMenu->menuID);
         origin.x = ud.returnvar[0];
@@ -7884,8 +7595,6 @@ void M_DisplayMenus(void)
             ud.returnvar[2] = ((MenuMenu_t *)m_animation.previous->object)->currentEntry;
             if (m_animation.previous->menuID == MENU_NEWGAMECUSTOMSUB)
                 ud.returnvar[3] = M_NEWGAMECUSTOM.currentEntry;
-            else if (m_animation.previous->menuID == MENU_NEWGAMECUSTOML3)
-                ud.returnvar[3] = M_NEWGAMECUSTOMSUB.currentEntry;
         }
         VM_OnEventWithReturn(EVENT_DISPLAYINACTIVEMENU, g_player[screenpeek].ps->i, screenpeek, m_animation.previous->menuID);
         previousOrigin.x = ud.returnvar[0];
@@ -7899,8 +7608,6 @@ void M_DisplayMenus(void)
         ud.returnvar[2] = ((MenuMenu_t *)m_currentMenu->object)->currentEntry;
         if (g_currentMenu == MENU_NEWGAMECUSTOMSUB)
             ud.returnvar[3] = M_NEWGAMECUSTOM.currentEntry;
-        else if (g_currentMenu == MENU_NEWGAMECUSTOML3)
-            ud.returnvar[3] = M_NEWGAMECUSTOMSUB.currentEntry;
     }
     VM_OnEventWithReturn(EVENT_DISPLAYMENU, g_player[screenpeek].ps->i, screenpeek, g_currentMenu);
     origin.x = ud.returnvar[0];
@@ -7938,8 +7645,6 @@ void M_DisplayMenus(void)
             ud.returnvar[2] = ((MenuMenu_t *)m_parentMenu->object)->currentEntry;
             if (m_parentMenu->menuID == MENU_NEWGAMECUSTOMSUB)
                 ud.returnvar[3] = M_NEWGAMECUSTOM.currentEntry;
-            else if (m_parentMenu->menuID == MENU_NEWGAMECUSTOML3)
-                ud.returnvar[3] = M_NEWGAMECUSTOMSUB.currentEntry;
         }
         VM_OnEventWithReturn(EVENT_DISPLAYINACTIVEMENUREST, g_player[screenpeek].ps->i, screenpeek, m_parentMenu->menuID);
     }
@@ -7953,8 +7658,6 @@ void M_DisplayMenus(void)
             ud.returnvar[2] = ((MenuMenu_t *)m_animation.previous->object)->currentEntry;
             if (m_animation.previous->menuID == MENU_NEWGAMECUSTOMSUB)
                 ud.returnvar[3] = M_NEWGAMECUSTOM.currentEntry;
-            else if (m_animation.previous->menuID == MENU_NEWGAMECUSTOML3)
-                ud.returnvar[3] = M_NEWGAMECUSTOMSUB.currentEntry;
         }
         VM_OnEventWithReturn(EVENT_DISPLAYINACTIVEMENUREST, g_player[screenpeek].ps->i, screenpeek, m_animation.previous->menuID);
     }
@@ -7966,8 +7669,6 @@ void M_DisplayMenus(void)
         ud.returnvar[2] = ((MenuMenu_t *)m_currentMenu->object)->currentEntry;
         if (g_currentMenu == MENU_NEWGAMECUSTOMSUB)
             ud.returnvar[3] = M_NEWGAMECUSTOM.currentEntry;
-        else if (g_currentMenu == MENU_NEWGAMECUSTOML3)
-            ud.returnvar[3] = M_NEWGAMECUSTOMSUB.currentEntry;
     }
     VM_OnEventWithReturn(EVENT_DISPLAYMENUREST, g_player[screenpeek].ps->i, screenpeek, g_currentMenu);
 

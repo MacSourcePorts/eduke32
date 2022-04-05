@@ -28,7 +28,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "duke3d.h"
 #include "microprofile.h"
-#include "screens.h"
 
 #if KRANDDEBUG
 # define ACTOR_STATIC
@@ -1337,7 +1336,22 @@ static int P_Submerge(int, DukePlayer_t *, int, int);
 static int P_Emerge(int, DukePlayer_t *, int, int);
 static void P_FinishWaterChange(int, DukePlayer_t *, int, int, int);
 
-static FORCE_INLINE fix16_t P_GetQ16AngleDeltaForTic(DukePlayer_t const *pPlayer) { return getq16angledelta(pPlayer->oq16ang, pPlayer->q16ang); }
+static fix16_t P_GetQ16AngleDeltaForTic(DukePlayer_t const *pPlayer)
+{
+    auto oldAngle = pPlayer->oq16ang;
+    auto newAngle = pPlayer->q16ang;
+
+    if (klabs(fix16_sub(oldAngle, newAngle)) < F16(1024))
+        return fix16_sub(newAngle, oldAngle);
+
+    if (newAngle > F16(1024))
+        newAngle = fix16_sub(newAngle, F16(2048));
+
+    if (oldAngle > F16(1024))
+        oldAngle = fix16_sub(oldAngle, F16(2048));
+
+    return fix16_sub(newAngle, oldAngle);
+}
 
 ACTOR_STATIC void G_MovePlayers(void)
 {
@@ -8536,8 +8550,6 @@ static void G_DoEffectorLights(void)  // STATNUM 14
 
     for (SPRITES_OF(STAT_LIGHT, i))
     {
-        dukeMaybeDrawFrame();
-
         switch (sprite[i].lotag)
         {
 #ifdef POLYMER
@@ -9107,9 +9119,8 @@ static void G_DoEventGame(int const nEventID)
                 int32_t   playerDist;
                 int const playerNum = A_FindPlayer(&sprite[spriteNum], &playerDist);
                 VM_ExecuteEvent(nEventID, spriteNum, playerNum, playerDist);
-                spriteNum = nextSprite;
 
-                dukeMaybeDrawFrame();
+                spriteNum = nextSprite;
             }
         }
         while (statNum < MAXSTATUS);
@@ -9118,8 +9129,8 @@ static void G_DoEventGame(int const nEventID)
 
 void G_MoveWorld(void)
 {
-    double worldTime = timerGetFractionalTicks();
-    auto framecnt = g_frameCounter;
+    extern double g_moveActorsTime, g_moveWorldTime;
+    const double worldTime = timerGetFractionalTicks();
 
     MICROPROFILE_SCOPEI("Game", "MoveWorld", MP_YELLOW);
 
@@ -9160,20 +9171,14 @@ void G_MoveWorld(void)
         G_MoveMisc();  //ST 5
     }
 
-    double actorsTime = timerGetFractionalTicks();
-    auto framecnt2 = framecnt;
+    const double actorsTime = timerGetFractionalTicks();
 
     {
         MICROPROFILE_SCOPEI("MoveWorld", "MoveActors", MP_YELLOW4);
         G_MoveActors();  //ST 1
     }
 
-    actorsTime = timerGetFractionalTicks() - actorsTime;
-
-    if (framecnt2 != framecnt)
-        actorsTime -= (double)g_lastFrameDuration2 * 1000.0 / (double)timerGetNanoTickRate();
-
-    g_moveActorsTime = (1-0.033)*g_moveActorsTime + 0.033*actorsTime;
+    g_moveActorsTime = (1-0.033)*g_moveActorsTime + 0.033*(timerGetFractionalTicks()-actorsTime);
 
     // XXX: Has to be before effectors, in particular movers?
     // TODO: lights in moving sectors ought to be interpolated
@@ -9202,10 +9207,5 @@ void G_MoveWorld(void)
         G_MoveFX();  //ST 11
     }
 
-    worldTime = timerGetFractionalTicks() - worldTime;
-
-    if (g_frameCounter != framecnt)
-        worldTime -= (double)g_lastFrameDuration2 * 1000.0 / (double)timerGetNanoTickRate();
-
-    g_moveWorldTime = (1-0.033)*g_moveWorldTime + 0.033*worldTime;
+    g_moveWorldTime = (1-0.033)*g_moveWorldTime + 0.033*(timerGetFractionalTicks()-worldTime);
 }

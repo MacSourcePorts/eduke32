@@ -60,13 +60,11 @@ typedef struct
     int32_t len;
     fix16_t volume;
     int16_t minpitch, maxpitch, distOffset;
-    uint8_t  playing;
+    int8_t  playing;
     uint8_t flags;
     char    priority;
     char    lock;
 } sound_t;
-
-EDUKE32_STATIC_ASSERT(MAXSOUNDINSTANCES <= sizeof(((sound_t *)0)->playing) << 3);
 
 extern voiceinfo_t nullvoice;
 extern sound_t nullsound;

@@ -407,8 +407,6 @@ static int different_user_map;
 // XXX: keyboard input 'blocked' after load fail? (at least ESC?)
 int32_t G_LoadPlayer(savebrief_t & sv)
 {
-    Bassert(mco_running() != co_drawframe);
-
     if (sv.isExt)
     {
         int volume = -1;
@@ -1734,7 +1732,6 @@ int32_t sv_saveandmakesnapshot(buildvfs_FILE fil, char const *name, int8_t spot,
     h.volnum     = ud.volume_number;
     h.levnum     = ud.level_number;
     h.skill      = ud.player_skill;
-    h.health     = sprite[g_player[myconnectindex].ps->i].extra;
 
     Bstrncpyz(h.boardfn, currentboardfilename, sizeof(h.boardfn));
 

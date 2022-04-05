@@ -11,7 +11,6 @@ ifeq ($(FURY),1)
     RETAIL_MENU := 1
     STANDALONE := 1
     USE_LIBVPX := 0
-    SDL_STATIC := 1
 endif
 
 ### Platform and Toolchain Configuration
@@ -255,7 +254,6 @@ engine_objs := \
     hightile.cpp \
     klzw.cpp \
     kplib.cpp \
-    loguru.cpp \
     lz4.c \
     md4.cpp \
     mhk.cpp \
@@ -299,7 +297,6 @@ engine_tools_objs := \
     crc32.cpp \
     klzw.cpp \
     kplib.cpp \
-    loguru.cpp \
     lz4.cpp \
     pragmas.cpp \
     smmalloc.cpp \
@@ -311,12 +308,15 @@ ifeq (0,$(NOASM))
   engine_objs += a.nasm
 else
   engine_objs += a-c.cpp
+  ifneq (0,$(USE_ASM64))
+    engine_objs += a64.yasm
+  endif
 endif
 ifeq (1,$(USE_OPENGL))
-    engine_objs += glbuild.cpp glsurface.cpp voxmodel.cpp mdsprite.cpp tilepacker.cpp
+    engine_objs += glsurface.cpp voxmodel.cpp mdsprite.cpp tilepacker.cpp
     engine_deps += glad
     ifeq (1,$(POLYMER))
-        engine_objs += polymer.cpp
+        engine_objs += glbuild.cpp polymer.cpp
     endif
 endif
 ifeq ($(PLATFORM),DARWIN)
@@ -439,7 +439,7 @@ tools_obj := $(obj)/$(tools)
 
 tools_cflags := $(engine_cflags)
 
-tools_deps := engine_tools mimalloc
+tools_deps := engine_tools
 
 tools_targets := \
     arttool \

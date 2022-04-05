@@ -831,7 +831,7 @@ int32_t mdloadskin(md2model_t *m, int32_t number, int32_t pal, int32_t surf)
                 al &= tcol.a = rpptr[x].a;
                 onebitalpha &= tcol.a == 0 || tcol.a == 255;
 
-                hictinting_applypixcolor(&tcol, pal, false);
+                hictinting_applypixcolor(&tcol, pal);
 
                 rpptr[x] = tcol;
             }
@@ -2069,8 +2069,10 @@ static int32_t polymost_md3draw(md3model_t *m, tspriteptr_t tspr)
 
     polymost_outputGLDebugMessage(3, "polymost_md3draw(m:%p, tspr:%p)", m, tspr);
 
-    if (m->vbos == NULL)
+#ifdef USE_GLEXT
+    if (r_vbos && (m->vbos == NULL))
         mdloadvbos(m);
+#endif
 
     //    if ((tspr->cstat&48) == 32) return 0;
 
@@ -2235,7 +2237,7 @@ static int32_t polymost_md3draw(md3model_t *m, tspriteptr_t tspr)
             a0.y = (float) sext->mdpivot_offset.y * f;
 
         if ((sext->mdpivot_offset.z) && !(tspr->clipdist & TSPR_FLAGS_MDHACK))  // Compare with SCREEN_FACTORS above
-            a0.z = (float)(((tspr->cstat & CSTAT_SPRITE_ALIGNMENT) == CSTAT_SPRITE_ALIGNMENT_FLOOR) ? -sext->mdpivot_offset.z : sext->mdpivot_offset.z) / (gxyaspect * fxdimen * (65536.f/128.f) * (m0.z+m1.z));
+            a0.z = (float)sext->mdpivot_offset.z / (gxyaspect * fxdimen * (65536.f/128.f) * (m0.z+m1.z));
 
         k0 = (float)sintable[(sext->mdpitch+512)&2047] * (1.f/16384.f);
         k1 = (float)sintable[sext->mdpitch&2047] * (1.f/16384.f);
@@ -2267,7 +2269,7 @@ static int32_t polymost_md3draw(md3model_t *m, tspriteptr_t tspr)
         v1 = &s->xyzn[m->nframe*s->numverts];
 
 #ifdef USE_GLEXT
-        if (r_vertexarrays)
+        if (r_vertexarrays && r_vbos)
         {
             if (++curvbo >= r_vbocount)
                 curvbo = 0;
@@ -2304,7 +2306,7 @@ static int32_t polymost_md3draw(md3model_t *m, tspriteptr_t tspr)
                 fp.y = (fp1.y - a0.z)*m0.z + (fp2.y - a0.z)*m1.z;
 
 #ifdef USE_GLEXT
-                if (r_vertexarrays)
+                if (r_vertexarrays && r_vbos)
                     vertexhandle[i] = fp;
 #endif
 
@@ -2320,7 +2322,7 @@ static int32_t polymost_md3draw(md3model_t *m, tspriteptr_t tspr)
                 fp.x = v0[i].y*m0.y + v1[i].y*m1.y;
 
 #ifdef USE_GLEXT
-                if (r_vertexarrays)
+                if (r_vertexarrays && r_vbos)
                     vertexhandle[i] = fp;
 #endif
 
@@ -2329,7 +2331,7 @@ static int32_t polymost_md3draw(md3model_t *m, tspriteptr_t tspr)
         }
 
 #ifdef USE_GLEXT
-        if (r_vertexarrays)
+        if (r_vertexarrays && r_vbos)
         {
             glUnmapBuffer(GL_ARRAY_BUFFER);
             glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -2390,7 +2392,7 @@ static int32_t polymost_md3draw(md3model_t *m, tspriteptr_t tspr)
                 glMatrixMode(GL_MODELVIEW);
             }
 
-            if (r_vertexarrays)
+            if (r_vertexarrays && r_vbos)
             {
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexvbos[curvbo]);
                 vbotemp = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
@@ -2445,7 +2447,7 @@ static int32_t polymost_md3draw(md3model_t *m, tspriteptr_t tspr)
         else
         {
 #ifdef USE_GLEXT
-            if (r_vertexarrays)
+            if (r_vertexarrays && r_vbos)
             {
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexvbos[curvbo]);
                 vbotemp = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
@@ -2463,26 +2465,43 @@ static int32_t polymost_md3draw(md3model_t *m, tspriteptr_t tspr)
 #ifdef USE_GLEXT
             int32_t l;
 
-            glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-            glBindBuffer(GL_ARRAY_BUFFER, m->vbos[surfi]);
-
-            l = GL_TEXTURE0;
-            do
+            if (r_vbos)
             {
-                glClientActiveTexture(l++);
-                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-                glTexCoordPointer(2, GL_FLOAT, 0, 0);
-            } while (l <= texunits);
+                glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+                glBindBuffer(GL_ARRAY_BUFFER, m->vbos[surfi]);
 
-            glBindBuffer(GL_ARRAY_BUFFER, vertvbos[curvbo]);
-            glVertexPointer(3, GL_FLOAT, 0, 0);
+                l = GL_TEXTURE0;
+                do
+                {
+                    glClientActiveTexture(l++);
+                    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                    glTexCoordPointer(2, GL_FLOAT, 0, 0);
+                } while (l <= texunits);
 
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexvbos[curvbo]);
-            glDrawElements(GL_TRIANGLES, s->numtris * 3, GL_UNSIGNED_SHORT, 0);
+                glBindBuffer(GL_ARRAY_BUFFER, vertvbos[curvbo]);
+                glVertexPointer(3, GL_FLOAT, 0, 0);
 
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexvbos[curvbo]);
+                glDrawElements(GL_TRIANGLES, s->numtris * 3, GL_UNSIGNED_SHORT, 0);
+
+                glBindBuffer(GL_ARRAY_BUFFER, 0);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+            }
+            else // r_vbos
+            {
+                l = GL_TEXTURE0;
+                do
+                {
+                    glClientActiveTexture(l++);
+                    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                    glTexCoordPointer(2, GL_FLOAT, 0, &(s->uv[0].u));
+                } while (l <= texunits);
+
+                glVertexPointer(3, GL_FLOAT, 0, &(vertlist[0].x));
+
+                glDrawElements(GL_TRIANGLES, s->numtris * 3, GL_UNSIGNED_SHORT, m->vindexes);
+            } // r_vbos
 
             while (texunits > GL_TEXTURE0)
             {
@@ -2493,7 +2512,7 @@ static int32_t polymost_md3draw(md3model_t *m, tspriteptr_t tspr)
                 glDisable(GL_TEXTURE_2D);
                 glDisableClientState(GL_TEXTURE_COORD_ARRAY);
                 glClientActiveTexture(texunits - 1);
-                glActiveTexture(--texunits);
+                polymost_activeTexture(--texunits);
             }
 #else
             glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -2685,7 +2704,7 @@ void md_allocvbos(void)
 int32_t polymost_mddraw(tspriteptr_t tspr)
 {
 #ifdef USE_GLEXT
-    if (r_vbocount > allocvbos)
+    if (r_vbos && (r_vbocount > allocvbos))
         md_allocvbos();
 #endif
 
