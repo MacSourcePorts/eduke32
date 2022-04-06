@@ -528,7 +528,7 @@ else ifeq ($(PLATFORM),DARWIN)
             override ARCH := -arch $(ARCH)
         endif
     endif
-    COMMONFLAGS += $(ARCH)
+    COMMONFLAGS += $(ARCH) -mmacosx-version-min=10.9
 
     ifneq ($(findstring x86_64,$(IMPLICIT_ARCH)),x86_64)
         LINKERFLAGS += -read_only_relocs suppress
@@ -849,6 +849,7 @@ endif
 
 ##### External library paths
 
+$(info $$ARCH is [${ARCH}])
 ifeq ($(PLATFORM),WINDOWS)
     COMPILERFLAGS += -Iplatform/Windows/include
     LIBDIRS += -Lplatform/Windows/lib/$(BITS)
@@ -858,8 +859,13 @@ else ifeq ($(PLATFORM),DARWIN)
         COMPILERFLAGS += -I/opt/local/include
     endif
     ifneq ($(shell brew --version &>/dev/null; echo $$?),127)
-        LIBDIRS += -L/usr/local/lib
-        COMPILERFLAGS += -I/usr/local/include
+		ifeq ($(ARCH),-arch arm64)
+			LIBDIRS += -L/opt/homebrew/lib
+			COMPILERFLAGS += -I/opt/homebrew/include
+		else
+			LIBDIRS += -L/usr/local/lib
+			COMPILERFLAGS += -I/usr/local/include
+		endif
     endif
     ifneq ($(shell fink --version &>/dev/null; echo $$?),127)
         LIBDIRS += -L/sw/lib

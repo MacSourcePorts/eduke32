@@ -89,3 +89,5 @@ project.xcworkspace/
 /source/voidwrap/sdk/
 package
 eduke32.debug
+mapster32.arm64
+eduke32.arm64

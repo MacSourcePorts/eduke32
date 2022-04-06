@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# build debug/release x86/x86_64/ppc versions of mapster32 and eduke32 on OS X
+# build debug/release ppc/x86/x86_64/arm64 versions of mapster32 and eduke32 on macOS
 
 cd ..
 
@@ -8,6 +8,7 @@ cd ..
 buildppc=1
 build86=1
 build64=1
+buildarm64=1
 buildmain=1
 buildtools=0
 installtools=0
@@ -35,6 +36,7 @@ if [ `expr $darwinversion \< 9` == 1 ]; then
 fi
 if [ `expr $darwinversion \< 10` == 1 ]; then
     build64=0
+    buildarm64=0
     # x86_64 is disabled by default on Leopard to avoid the additional hassles of getting libvpx installed into a PowerPC environment.
 fi
 if [ `expr $darwinversion \> 9` == 1 ]; then
@@ -57,6 +59,7 @@ for i in $*; do
             buildppc=0
             build86=1
             build64=1
+            buildarm64=1
             buildmain=1
             buildtools=1
             builddebug=0
@@ -67,6 +70,7 @@ for i in $*; do
             buildppc=0
             build86=0
             build64=1
+            buildarm64=1
             buildmain=1
             buildtools=0
             builddebug=1
@@ -78,6 +82,7 @@ for i in $*; do
             buildppc=0
             build86=0
             build64=0
+            buildarm64=0
             buildmain=0
             buildtools=0
             builddebug=0
@@ -89,6 +94,7 @@ for i in $*; do
             buildppc=0
             build86=0
             build64=0
+            buildarm64=0
             buildmain=0
             buildtools=0
             builddebug=0
@@ -101,6 +107,7 @@ for i in $*; do
             buildppc=1
             build86=1
             build64=1
+            buildarm64=1
             buildmain=1
             buildtools=0
             builddebug=1
@@ -110,6 +117,7 @@ for i in $*; do
             buildppc=1
             build86=1
             build64=1
+            buildarm64=1
             buildmain=0
             buildtools=1
             builddebug=1
@@ -119,6 +127,7 @@ for i in $*; do
             buildppc=1
             build86=1
             build64=1
+            buildarm64=1
             buildmain=1
             buildtools=1
             builddebug=1
@@ -130,6 +139,7 @@ for i in $*; do
             buildppc=0
             build86=0
             build64=0
+            buildarm64=0
             buildmain=0
             buildtools=0
             builddebug=0
@@ -145,6 +155,9 @@ for i in $*; do
         ;;
         --build64=*)
             build64=${i#*=}
+        ;;
+        --buildarm64=*)
+            buildarm64=${i#*=}
         ;;
 
         --main=*)
@@ -169,7 +182,7 @@ for i in $*; do
         *)
             echo "usage: ./osxbuild.sh [options]"
             echo "options:"
-            echo "    [--buildppc=<0|1>] [--build86=<0|1>] [--build64=<0|1>]"
+            echo "    [--buildppc=<0|1>] [--build86=<0|1>] [--build64=<0|1>] [--buildarm64=<0|1>]"
             echo "    [--debug=<0|1>]"
             echo "    [--main=<0|1>] [--tools=<0|1>]"
             echo "    [--pack=<0|1>]"
@@ -183,7 +196,8 @@ done
 # Mandatory disabled settings enforced:
 if [ `expr $darwinversion \< 9` == 1 ]; then
     build64=0
-    # x86_64 support did not exist before Leopard.
+    buildarm64=0
+    # x86_64/arm64 support did not exist before Leopard.
 fi
 if [ `expr $darwinversion \> 10` == 1 ]; then
     buildppc=0
@@ -256,6 +270,16 @@ if [ $buildtools$installtools != 00 ] && [ -d "build" ]; then
         make veryclean
         EXESUFFIX_OVERRIDE=.debug make veryclean
 
+        if [ $buildarm64 == 1 ]; then
+            if [ $builddebug == 1 ]; then
+                dobuildtools "arm64 debug" \
+                    "ARCH=arm64 EXESUFFIX_OVERRIDE=.debug.arm64 $commonargs RELEASE=0 USE_LIBVPX=1 $makecmd utils"
+            fi
+
+            dobuildtools "arm64 release" \
+                "ARCH=arm64 EXESUFFIX_OVERRIDE=.arm64 $commonargs RELEASE=1 USE_LIBVPX=1 $makecmd utils"
+        fi
+
         if [ $build64 == 1 ]; then
             if [ $builddebug == 1 ]; then
                 dobuildtools "x86_64 debug" \
@@ -292,7 +316,7 @@ if [ $buildtools$installtools != 00 ] && [ -d "build" ]; then
         utils=`make printutils && EXESUFFIX_OVERRIDE=.debug make printutils`
         for i in $utils; do
             binaries=
-            for j in ${i}.{x86,x64,ppc}; do
+            for j in ${i}.{x86,x64,ppc,arm64}; do
                 if [ -f "$j" ]; then
                     binaries="$binaries $j"
                 fi
@@ -341,6 +365,16 @@ if [ $buildmain == 1 ]; then
         makecmd="make"
     fi
 
+    if [ $buildarm64 == 1 ]; then
+        if [ $builddebug == 1 ]; then
+            dobuildem debug.arm64 "ARCH=arm64 $commonargs RELEASE=0 $makecmd"
+        fi
+
+        if [ $buildrelease == 1 ]; then
+            dobuildem arm64 "ARCH=arm64 $commonargs RELEASE=1 $makecmd"
+        fi
+    fi
+
     if [ $build64 == 1 ]; then
         if [ $builddebug == 1 ]; then
             dobuildem debug.x64 "ARCH=x86_64 $commonargs RELEASE=0 $makecmd"
@@ -384,7 +418,7 @@ success=$dummy
 if [ $dummy == 0 ]; then
     for i in {eduke32,mapster32}{.debug,}; do
         binaries=
-        for j in ${i}.{x86,x64,ppc}; do
+        for j in ${i}.{x86,x64,ppc,arm64}; do
             if [ -f "$j" ]; then
                 binaries="$binaries $j"
                 success=1
