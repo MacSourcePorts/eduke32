@@ -256,7 +256,7 @@ fi
 
 if [ $doclean == 1 ]; then
     cd build
-    rm -f *{.x86,.x64,.ppc}
+    rm -f *{.x86,.x64,.ppc,.arm64}
     cd ..
 fi
 
@@ -266,7 +266,7 @@ if [ $buildtools$installtools != 00 ] && [ -d "build" ]; then
     makecmd="make -k"
 
     if [ $buildtools == 1 ]; then
-        rm -f *{.x86,.x64,.ppc}
+        rm -f *{.x86,.x64,.ppc,.arm64}
         make veryclean
         EXESUFFIX_OVERRIDE=.debug make veryclean
 
@@ -353,7 +353,7 @@ if [ $buildtools$installtools != 00 ] && [ -d "build" ]; then
 fi
 
 if [ $doclean == 1 ] || [ $buildmain == 1 ]; then
-    rm -f {eduke32,mapster32}{.debug,}{.x86,.x64,.ppc,}
+    rm -f {eduke32,mapster32}{.debug,}{.x86,.x64,.ppc,.arm64,}
     rm -rf {$package/,}{EDuke32,Mapster32}{.debug,}.app
 fi
 

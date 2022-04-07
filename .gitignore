@@ -91,3 +91,6 @@ package
 eduke32.debug
 mapster32.arm64
 eduke32.arm64
+build-arm64/
+build-x86_64/
+release/
