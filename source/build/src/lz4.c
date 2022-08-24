@@ -32,6 +32,13 @@
     - LZ4 source repository : https://github.com/lz4/lz4
 */
 
+// tkidd - kludge
+#define LZ4_STREAMSIZE       16416  /* static size, for inter-version compatibility */
+#define LZ4_STREAMSIZE_VOIDP (LZ4_STREAMSIZE / sizeof(void*))
+
+#define LZ4_STREAMDECODESIZE_U64 (4 + ((sizeof(void*)==16) ? 2 : 0) /*AS-400*/ )
+#define LZ4_STREAMDECODESIZE     (LZ4_STREAMDECODESIZE_U64 * sizeof(unsigned long long))
+
 /*-************************************
 *  Tuning parameters
 **************************************/
